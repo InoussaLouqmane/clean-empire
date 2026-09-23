@@ -27,6 +27,11 @@ export class CameraController {
     this.pinchStartDistance = null;
     this.pinchStartZoom = null;
 
+    // Le mode édition (voir editor/MapEditor.js) désactive le pan au glisser
+    // pour que peindre des tuiles ne fasse pas aussi défiler la caméra — le
+    // zoom molette reste actif dans les deux cas.
+    this.enabled = true;
+
     // A second active pointer is required for pinch-to-zoom on touch devices.
     scene.input.addPointer(1);
 
@@ -47,6 +52,7 @@ export class CameraController {
   }
 
   _onPointerDown() {
+    if (!this.enabled) return;
     const active = this._getActivePointers();
 
     if (active.length >= 2) {
@@ -66,6 +72,7 @@ export class CameraController {
   }
 
   _onPointerMove(pointer) {
+    if (!this.enabled) return;
     const active = this._getActivePointers();
 
     if (active.length >= 2) {

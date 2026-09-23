@@ -35,18 +35,26 @@ plus rapide et honorer les contrats à temps fait grandir l'empire.
 - 🗺️ Rendu isométrique dimétrique (tuiles 64×32) plein écran, responsive
 - 🖱️ **Caméra** : glisser pour panner (souris et tactile), molette / pincement pour
   zoomer, **inertie** façon Clash of Clans au relâchement
-- 🏙️ **Vraie carte** chargée depuis un export Tiled (`public/maps/net-empire.tmj`) :
-  sol, routes, bâtiments (QG, hôpital, marché, hôtel, école...), décor de rue
+- 🏙️ **Carte du jeu** : sol, routes, bâtiments (QG, hôpital, marché, hôtel,
+  école...), décor de rue — importée une fois depuis Tiled, puis éditable
+  (voir ci-dessous)
+- 🎨 **Éditeur de carte en jeu** : bouton "Mode édition" en haut à droite,
+  choisir un calque (Sol/Routes/Bâtiments/Détails), peindre/effacer des tuiles
+  à la souris depuis une palette de vrais assets, exporter en JSON
 
 ## 🔜 Pas encore là
 
-Interactions au clic, économie, animation des sprites (ouvrier/tricycle/camion en
-image statique pour l'instant), sons. Voir [`STATUS.md`](./STATUS.md) pour le détail
-précis et la prochaine étape en cours.
+Interactions de jeu (clic sur un bâtiment pour une action), économie, animation
+des sprites (ouvrier/tricycle/camion en image statique pour l'instant), sons,
+undo dans l'éditeur. Voir [`STATUS.md`](./STATUS.md) pour le détail précis et la
+prochaine étape en cours.
 
 ## 🕹️ Live demo
 
 👉 **[Jouer à la démo](https://clean-empire.vercel.app)**
+
+*(La démo en ligne peut être en retard par rapport à `main` — le travail se
+fait actuellement surtout en local avant de pousser, voir STATUS.md.)*
 
 ## 🧱 Stack technique
 
@@ -103,16 +111,25 @@ public/assets/           Assets statiques, servis tels quels par Vite
   ui/                     Icônes économie, jauge de réputation, boutons, alertes, écrans
   sound/                  Vide pour l'instant
 public/maps/
-  net-empire.tmj          Export Tiled JSON de la carte (isométrique, 64×32, 40×30)
+  net-empire.tmj          Export Tiled JSON d'origine (isométrique, 64×32, 40×30) —
+                           converti une seule fois, voir mapData.js
 
 src/
   main.js                 Point d'entrée JS, crée l'instance Phaser.Game
   CameraController.js     Module caméra réutilisable : pan (glisser souris/tactile),
-                           zoom (molette + pincement), inertie au relâchement
-  mapLoader.js             Charge net-empire.tmj et fait correspondre chaque tuile/
-                           objet Tiled à un vrai asset (voir CLAUDE.md pour le détail)
+                           zoom (molette + pincement), inertie au relâchement,
+                           désactivable (flag enabled) pendant l'édition
+  mapData.js               Format de carte propre à Net Empire (grille de clés de
+                           texture) + conversion Tiled unique + sauvegarde/export
+  mapLoader.js             Chargement des assets et rendu des sprites à partir du
+                           format de mapData.js (voir CLAUDE.md pour le détail)
+  editor/
+    MapEditor.js           Logique de peinture/gomme sur la carte (calque actif,
+                           pinceau, glissé continu)
+    EditorPanel.js          Panneau DOM (bouton "Mode édition", calques, palette,
+                           export) — pas un système Phaser, un overlay HTML/CSS
   scenes/
-    MapScene.js           Scène active par défaut : construit la carte via mapLoader.js
+    MapScene.js           Scène active par défaut : charge/édite/affiche la carte
     CalibrationScene.js   Ancienne grille de calibration, gardée mais inutilisée par
                            défaut (utile pour retester la caméra seule)
 ```

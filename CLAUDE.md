@@ -105,31 +105,62 @@ Le mapping "dossier du zip source → dossier organisé" ne suit pas toujours un
 correspondance 1:1 exacte de noms (accents, singulier/pluriel) : voir l'audit complet
 dans STATUS.md avant de rechercher un asset par son nom de dossier d'origine.
 
-## Carte (Tiled) — points importants
+## Carte — format propre à Net Empire, Tiled abandonné après l'import initial
 
-- Fichier source : `public/maps/net-empire.tmj`, export Tiled JSON isométrique
-  64×32, 40×30 tuiles, 4 calques de tuiles (Ground/Roads/Buildings/Details) + 2
-  calques d'objets (Repères, Bâtiments du jeu).
+Depuis la session éditeur (2026-09-23), **Tiled n'est plus qu'un point de départ
+ponctuel**. Toute la carte (chargement, édition, sauvegarde) utilise un format
+JSON propre au projet, défini dans `src/mapData.js` :
+```
+{ width, height, layers: { ground, roads, buildings, details } }
+```
+chaque calque étant un tableau 2D `[row][col]` contenant soit `null`, soit une
+clé de texture (voir `ASSET_PATHS`/`PALETTE_GROUPS` dans `src/mapLoader.js`). Ne
+pas réintroduire de logique Tiled ailleurs que dans `convertTiledToGrid()`.
+
+- Fichier source Tiled (historique, converti une seule fois) :
+  `public/maps/net-empire.tmj`, export JSON isométrique 64×32, 40×30 tuiles.
+- `convertTiledToGrid()` (dans `mapData.js`) ne s'exécute que tant qu'aucune
+  carte éditée n'est sauvegardée en local (`localStorage`, clé
+  `net-empire-map-v1`). Une fois l'utilisateur a édité quoi que ce soit via le
+  mode édition, cette conversion n'est plus jamais relue — sauf clic exprès sur
+  "Revenir à la carte importée de Tiled" dans le panneau d'édition.
 - Le `.tmj` référence un tileset externe (`net_empire_demo.tsx`) dont les images
-  n'existent pas dans ce projet (placeholders générés ailleurs). **`mapLoader.js`
-  ignore volontairement ce tileset** : il lit le `.tmj` comme une simple source de
-  données (grille de gid + objets), et fait correspondre chaque gid/nom d'objet à
-  un vrai asset via ses propres tables (`GID_TO_TEXTURE`,
-  `OBJECT_NAME_TO_TEXTURE`) — ne pas essayer de faire charger le `.tsx` par
-  Phaser, ce n'est pas nécessaire.
-- ~12 des 32 tuiles du plan Tiled n'ont pas d'équivalent réel (herbe claire,
-  prairie fleurie, route secondaire, terre battue, canal/eau, boutique, maison,
-  maison terracotta, colis, fontaine, étal de marché, cultures) : elles utilisent
-  l'asset réel le plus proche disponible (décision validée avec l'utilisateur —
-  "fais le matching au mieux"), voir le tableau commenté dans `mapLoader.js`.
-- Les coordonnées d'objets Tiled sur une carte isométrique divisent x **et** y par
-  `tileHeight` (pas `tileWidth`) avant d'appliquer la projection iso — convention
-  du renderer isométrique de Tiled lui-même, pas une supposition ; voir
-  `objectToScreen()` dans `mapLoader.js`.
+  n'existent pas dans ce projet (placeholders générés ailleurs) — sans
+  conséquence puisqu'on ne charge jamais ce tileset, seulement la grille brute
+  de gid + objets du `.tmj`.
+- ~12 des 32 tuiles du plan Tiled d'origine n'avaient pas d'équivalent réel
+  (herbe claire, prairie fleurie, route secondaire, terre battue, canal/eau,
+  boutique, maison, maison terracotta, colis, fontaine, étal de marché,
+  cultures) : la conversion initiale utilise l'asset réel le plus proche
+  disponible (décision validée avec l'utilisateur — "fais le matching au
+  mieux"), voir le tableau commenté dans `mapData.js`. Rien n'empêche de
+  corriger ça à la main ensuite via l'éditeur.
+- Les bâtiments "héros" du calque d'objets Tiled (positionnement libre en
+  pixels dans Tiled) sont convertis en cellules de grille (calque `buildings`),
+  ancrées à la cellule la plus proche — le positionnement libre est abandonné
+  au profit d'une grille uniforme, seule façon raisonnable d'avoir un éditeur
+  simple. Les coordonnées d'objets Tiled isométriques divisent x **et** y par
+  `tileHeight` (pas `tileWidth`) avant projection — convention du renderer
+  isométrique de Tiled lui-même, pas une supposition.
+
+## Éditeur de carte en jeu
+
+Bouton "✏️ Mode édition" en haut à droite (`src/editor/EditorPanel.js`, overlay
+DOM par-dessus le canvas Phaser, pas un système Phaser). Permet de choisir le
+calque actif (Sol/Routes/Bâtiments/Détails), de peindre/effacer des tuiles à la
+souris (glissé = plusieurs cases), et d'exporter la carte en JSON. La logique de
+peinture est dans `src/editor/MapEditor.js` ; pendant l'édition, le pan de
+`CameraController` est désactivé (`camera.enabled = false`) pour ne pas
+interférer avec le glissé de peinture — le zoom molette reste actif.
+
+Pas d'undo pour l'instant : une erreur se corrige en repeignant par-dessus, ou
+en repartant de zéro via "Revenir à la carte importée de Tiled" (efface la
+sauvegarde locale).
 
 ## État fonctionnel actuel
 
-Le **module caméra** (pan/zoom/inertie) et le **chargement de la vraie carte**
-(`mapLoader.js` + `MapScene`) sont fonctionnels. Pas encore d'interaction au clic,
-pas d'économie, pas d'animation des sprites (ouvrier/tricycle/camion affichés en
-image statique). Voir STATUS.md pour le détail exact et la prochaine étape.
+Caméra (pan/zoom/inertie), chargement de la carte, et **éditeur de carte en
+jeu** sont fonctionnels. Pas encore d'interaction de jeu (clic sur un bâtiment
+pour une action), pas d'économie, pas d'animation des sprites (ouvrier/tricycle/
+camion affichés en image statique), pas d'undo dans l'éditeur. Voir STATUS.md
+pour le détail exact et la prochaine étape.

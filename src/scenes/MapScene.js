@@ -1,11 +1,17 @@
 import Phaser from 'phaser';
 import { CameraController } from '../CameraController.js';
 import * as mapLoader from '../mapLoader.js';
+import * as mapData from '../mapData.js';
+import { MapEditor } from '../editor/MapEditor.js';
+import { EditorPanel } from '../editor/EditorPanel.js';
+import { SelectionFrame } from '../editor/SelectionFrame.js';
 
-// Première carte réelle du jeu (export Tiled du rôle 5, Map v3.tmj), en
-// remplacement de la grille de calibration neutre. Voir mapLoader.js pour la
-// correspondance tuile Tiled -> vrai asset, et STATUS.md pour le détail de la
-// session qui l'a branchée.
+const SELECTION_FRAME_WORLD_SIZE = 56; // demi-tuile de marge autour d'une tuile 64×32
+
+// Carte du jeu, éditable en direct (voir editor/). Le premier chargement
+// convertit l'export Tiled (net-empire.tmj) vers notre propre format de grille
+// (mapData.js) ; toute édition ultérieure est sauvegardée dans le navigateur et
+// n'a plus besoin de Tiled — voir STATUS.md pour le détail de cette session.
 
 export class MapScene extends Phaser.Scene {
   constructor() {
@@ -18,8 +24,15 @@ export class MapScene extends Phaser.Scene {
 
   create() {
     const container = this.add.container(0, 0);
-    const bounds = mapLoader.buildMap(this, container);
 
+    const tiledJson = mapLoader.getRawTiledJson(this);
+    const grid = mapData.loadSavedGrid() ?? mapData.convertTiledToGrid(tiledJson);
+
+    const spriteGrid = mapLoader.createSpriteGrid(grid.width, grid.height);
+    mapLoader.buildFromGrid(this, container, spriteGrid, grid);
+    mapLoader.placeLandmarks(this, container, tiledJson);
+
+    const bounds = mapLoader.computeMapBounds(grid.width, grid.height);
     this.cameras.main.centerOn(
       (bounds.minX + bounds.maxX) / 2,
       (bounds.minY + bounds.maxY) / 2
@@ -37,9 +50,95 @@ export class MapScene extends Phaser.Scene {
       minZoom: 0.3,
       maxZoom: 2.5,
     });
+
+    this.mapEditor = new MapEditor(this, {
+      container,
+      grid,
+      spriteGrid,
+      onChange: () => mapData.saveGrid(grid),
+      onOrientationChange: (flipX, flipY) => this.editorPanel?.setOrientationPreview(flipX, flipY),
+      onToolChange: (tool, brushKey) => this.editorPanel?.setActiveTool(tool, brushKey),
+    });
+
+    this.selectionFrame = new SelectionFrame({
+      onDelete: () => this.mapEditor.deleteSelected(),
+      onRotate: () => this.mapEditor.rotateSelected(),
+    });
+
+    // scene.restart() (bouton "Revenir à la carte importée de Tiled") relance
+    // create() sans détruire les éléments DOM des panneaux précédents ni
+    // retirer l'écouteur clavier de l'éditeur précédent — il faut les nettoyer
+    // explicitement, sinon boutons dupliqués et raccourcis clavier en double.
+    this.events.once('shutdown', () => {
+      this.editorPanel?.destroy();
+      this.selectionFrame?.destroy();
+      this.mapEditor?.destroy();
+    });
+
+    this.editorPanel = new EditorPanel({
+      onToggle: (active) => this.mapEditor.setActive(active),
+      onLayerChange: (layer) => this.mapEditor.setActiveLayer(layer),
+      onLayerVisibilityChange: (layer, visible) => this.mapEditor.setLayerVisible(layer, visible),
+      onBrushChange: (textureKey) => this.mapEditor.setBrush(textureKey),
+      onRotateBrush: () => this.mapEditor.cycleOrientation(),
+      onMoveTool: () => this.mapEditor.setMoveTool(),
+      onEraseTool: () => this.mapEditor.setEraseTool(),
+      onExport: () => mapData.exportGridAsFile(grid),
+      onImport: (file) => this._importMapFromFile(file),
+      onResetToGrass: () => this.mapEditor.resetToGrassOnly(),
+      onClearSaved: () => {
+        mapData.clearSavedGrid();
+        this.scene.restart();
+      },
+    });
   }
 
   update() {
     this.cameraController.update();
+    this._updateSelectionFrame();
+  }
+
+  /** Repositionne le cadre contextuel (DOM) chaque frame à partir de la
+   * position monde de la tuile sélectionnée — nécessaire même sans glisser en
+   * cours, puisque le zoom molette reste actif pendant l'édition. */
+  _updateSelectionFrame() {
+    const worldPos = this.mapEditor.getSelectedWorldPosition();
+    if (!worldPos) {
+      this.selectionFrame.hide();
+      return;
+    }
+
+    // Conversion monde -> écran. Le zoom d'une caméra Phaser pivote autour de
+    // son CENTRE actuel (scrollX + width/2, scrollY + height/2), pas autour de
+    // l'origine du monde — la version précédente de ce calcul l'oubliait, ce
+    // qui causait un décalage entre le cadre et la tuile réelle dès que le
+    // zoom n'était pas exactement 1 (signalé par l'utilisateur via capture
+    // d'écran). Cette formule reproduit le pivot central que centerOn()/setZoom()
+    // utilisent déjà en interne.
+    const camera = this.cameras.main;
+    const halfWidth = camera.width / 2;
+    const halfHeight = camera.height / 2;
+    const screenX = (worldPos.x - camera.scrollX - halfWidth) * camera.zoom + halfWidth;
+    const screenY = (worldPos.y - camera.scrollY - halfHeight) * camera.zoom + halfHeight;
+    this.selectionFrame.setScreenRect(screenX, screenY, SELECTION_FRAME_WORLD_SIZE * camera.zoom);
+  }
+
+  /** Lit et valide un fichier JSON exporté (ou modifié à la main), le
+   * sauvegarde en local et relance la scène pour repartir dessus proprement —
+   * même mécanisme que "Revenir à la carte importée de Tiled", pour ne pas
+   * avoir à gérer un changement de dimensions de grille en direct. */
+  _importMapFromFile(file) {
+    const reader = new FileReader();
+    reader.onload = () => {
+      try {
+        const importedGrid = mapData.parseGridFile(reader.result);
+        mapData.saveGrid(importedGrid);
+        this.scene.restart();
+      } catch (err) {
+        window.alert(`Import impossible : ${err.message}`);
+      }
+    };
+    reader.onerror = () => window.alert('Impossible de lire ce fichier.');
+    reader.readAsText(file);
   }
 }

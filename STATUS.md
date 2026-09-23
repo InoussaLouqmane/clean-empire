@@ -389,3 +389,565 @@ valider le positionnement des bâtiments (objet layer) et l'absence d'autres
 textures manquantes ailleurs sur la carte. Toujours bloqué sur l'export Tiled du
 rôle 5 pour la suite (contenu déjà reçu et branché, mais si une nouvelle version
 de la carte arrive, revoir `mapLoader.js`).
+
+---
+
+## 2026-09-23 — Éditeur de carte en jeu (abandon du pipeline Tiled pour la suite)
+
+### Contexte
+
+L'utilisateur a remarqué, via capture d'écran de la démo, que des tuiles (routes,
+pavés) étaient mal placées sur la carte importée de Tiled, et a proposé un mode
+édition directement dans le jeu (bouton en haut à droite, calques, palette de
+tuiles, pouvoir retirer/remplacer une tuile) plutôt que de continuer à
+retravailler la carte dans Tiled. Décision actée : **Tiled n'est plus utilisé
+qu'une seule fois, comme point de départ**. Tout le reste (édition, sauvegarde,
+export) passe désormais par un format de carte propre à Net Empire, indépendant
+de Tiled. Décision explicite de l'utilisateur pour cette session : **ne pas
+pusher sur GitHub après chaque changement** ("on va perdre beaucoup de tokens,
+on va juste fonctionner sur le localhost") — tout ce qui suit a été développé et
+testé uniquement en local (`npm run dev`), **rien n'a été commit ni poussé**.
+
+### Fait
+
+- **Nouveau format de carte** (`src/mapData.js`) : `{ width, height, layers: {
+  ground, roads, buildings, details } }`, chaque calque étant un tableau 2D
+  `[row][col]` de clé de texture (ou `null`). Plus aucune notion de gid Tiled
+  dans ce format.
+- **Conversion unique** `convertTiledToGrid()` : reprend exactement la logique
+  de correspondance gid/nom → texture de la session précédente (déplacée depuis
+  `mapLoader.js`), mais ne s'exécute qu'une fois, au tout premier chargement
+  (tant qu'aucune carte éditée n'est sauvegardée localement). Les bâtiments
+  "héros" du calque d'objets Tiled sont désormais convertis en cellules du
+  calque `buildings`, ancrées à la cellule de grille la plus proche de leur
+  position Tiled d'origine — **le positionnement libre en pixels est abandonné
+  au profit d'une grille uniforme éditable**, seule façon raisonnable d'avoir un
+  éditeur simple.
+- **`mapLoader.js` simplifié** : ne connaît plus Tiled ni les gid. Nouvelles
+  fonctions clés : `screenToIso()` (inverse de la projection iso, pour
+  retrouver la cellule sous le curseur), `createSpriteGrid()`, `placeTileAt()`
+  (pose/remplace/efface une seule cellule — fonction unique utilisée aussi bien
+  pour le rendu initial que par l'éditeur en direct), `buildFromGrid()`. Taille
+  d'affichage par défaut calculée par préfixe de clé (`tile_`/`building_`/
+  `prop_`/`vehicle_`/`char_worker`) plutôt qu'une table à maintenir à la main.
+  Assets ajoutés à `ASSET_PATHS` (disponibles dans la palette même si absents
+  de la carte Tiled d'origine) : route en angle, cinéma, restaurant, poubelle
+  vide, poubelle débordante.
+- **Sauvegarde/export** (`mapData.js`) : `saveGrid()`/`loadSavedGrid()` via
+  `localStorage` (clé `net-empire-map-v1`), auto-sauvegarde à chaque édition ;
+  `exportGridAsFile()` télécharge un fichier `net-empire-map.json` (bouton
+  "💾 Exporter la carte" dans le panneau).
+- **`src/editor/MapEditor.js`** : logique de peinture — calque actif, pinceau
+  sélectionné (clé de texture, ou `null` = gomme), peint en continu tant que le
+  bouton de la souris est maintenu (glissé = plusieurs cases d'affilée).
+  Désactive le pan au glisser de `CameraController` pendant que le mode édition
+  est actif (`camera.enabled = false`), pour que peindre ne fasse pas aussi
+  défiler la vue — le zoom molette reste actif dans les deux cas.
+- **`src/editor/EditorPanel.js`** : overlay DOM (pas dans le canvas Phaser,
+  plus simple et plus fiable pour ce genre d'UI) — bouton "✏️ Mode édition" en
+  haut à droite ; une fois activé, panneau avec sélecteur de calque actif +
+  case à cocher de visibilité par calque, palette groupée (Sol / Routes /
+  Bâtiments / Décor / Personnages & véhicules) avec vignettes utilisant les
+  vrais assets (recadrées sur la première frame pour les sprite-sheets), un
+  outil "Gomme", un bouton d'export, et un bouton "↺ Revenir à la carte
+  importée de Tiled" qui efface la sauvegarde locale et relance la scène
+  (`scene.restart()`).
+- **`CameraController.js`** : ajout d'un flag `enabled` (vérifié dans
+  `_onPointerDown`/`_onPointerMove`), pour permettre à l'éditeur de désactiver
+  le pan sans dupliquer la logique caméra.
+- **Nettoyage DOM sur restart** : `MapScene` retire les éléments DOM du panneau
+  précédent (`editorPanel.destroy()`) sur l'événement `shutdown` de la scène —
+  sans ça, le bouton "Revenir à Tiled" dupliquerait le panneau à chaque clic.
+- **Validation** : `npm run build` réussi (14 modules, aucune erreur). Serveur
+  `npm run dev` lancé en local (port 5175, les précédents étant occupés), les
+  nouveaux assets et modules JS vérifiés un par un via requêtes HTTP : tous
+  répondent 200. **Rien poussé sur GitHub, rien déployé sur Vercel** — conforme
+  à la demande explicite de l'utilisateur.
+
+### Bloqué
+
+- **Aucune vérification visuelle possible** (extension Claude in Chrome non
+  connectée, toujours) — c'est particulièrement important ici vu que c'est une
+  fonctionnalité interactive (peindre à la souris, panneau DOM par-dessus le
+  canvas) : la logique a été relue attentivement mais jamais testée à l'usage.
+  Points à vérifier en priorité par l'utilisateur : le panneau DOM s'affiche
+  bien par-dessus le canvas (z-index), les vignettes de la palette ressemblent
+  bien aux vrais assets (en particulier le recadrage des sprite-sheets
+  ouvrier/tricycle/camion), cliquer/glisser peint bien la bonne case sans
+  décalage (validerait `screenToIso`), et que désactiver le pan pendant
+  l'édition ne casse pas le zoom molette.
+- Pas de undo/historique — une erreur de placement s'efface seulement en
+  repeignant par-dessus ou en revenant à la carte Tiled d'origine (qui repart
+  de zéro, perd toute l'édition en cours).
+- Pas de placement libre (hors grille) pour les bâtiments — accepté comme
+  compromis pour la simplicité de l'éditeur, voir "Fait" ci-dessus.
+
+### Prochaine étape
+
+Faire tester l'éditeur par l'utilisateur en local (`npm run dev`, actuellement
+sur le port 5175 — relancer si besoin). Une fois validé à l'usage (et seulement
+à ce moment-là, l'utilisateur ayant demandé d'éviter les push inutiles) :
+commit + push pour déployer sur Vercel. Si le clic ne peint pas la bonne case,
+vérifier en premier `screenToIso()` dans `mapLoader.js`.
+
+---
+
+## 2026-09-23 — Bouton "tout effacer sauf l'herbe" dans l'éditeur
+
+### Fait
+
+Ajout demandé par l'utilisateur après avoir testé l'éditeur ("j'aime bien le
+rendu") : un bouton **"🌱 Tout effacer (garder l'herbe)"** dans le panneau
+d'édition, pour repartir d'une surface entièrement en herbe plutôt que de
+garder la conversion Tiled importée. Vide les calques Routes/Bâtiments/Détails
+et remplit tout le calque Sol avec `tile_grass`. Confirmation via `window.confirm()`
+avant d'agir (action destructrice, pas d'undo). Implémenté dans
+`MapEditor.resetToGrassOnly()` + `mapLoader.clearSpriteGrid()` (nouvelle
+fonction utilitaire qui détruit tous les sprites d'un spriteGrid). Toujours en
+local uniquement, rien poussé — build revalidé (14 modules, aucune erreur).
+
+### Prochaine étape
+
+Inchangée : faire tester l'éditeur (y compris ce nouveau bouton) en local avant
+tout commit/push.
+
+---
+
+## 2026-09-23 — Facilités de pose : annuler/rétablir, ligne droite, orientation
+
+### Fait
+
+Trois demandes de l'utilisateur pour faciliter la pose de tuiles :
+
+- **Annuler/rétablir** : `Ctrl+Z` / `Ctrl+Y` (ou `Ctrl+Maj+Z`). Un glissé complet
+  (pointerdown → pointerup) = une seule étape d'annulation, pas case par case —
+  sinon annuler un tracé de 10 cases aurait demandé 10 `Ctrl+Z`. Implémenté par
+  un historique de "coups" (`undoStack`/`redoStack` dans `MapEditor`), chaque
+  coup étant la liste des cellules modifiées pendant le glissé (valeur avant/
+  après), pas un instantané de toute la carte.
+- **Ligne droite au glissé** : `Maj` (Shift) maintenu pendant un glissé verrouille
+  la pose sur un seul axe de la grille (colonne ou ligne — celui dominant depuis
+  le point de départ du glissé), pour tracer droit sans déborder sur l'axe
+  perpendiculaire. Point de départ du glissé mémorisé dans `strokeAnchor`.
+- **Orientation de la tuile** : touche `R` (ou bouton "🔄 Pivoter") fait cycler
+  4 états sur la tuile sélectionnée avant de la poser. **Important, expliqué à
+  l'utilisateur avant de coder** : ce n'est **pas une vraie rotation à 90°** — nos
+  images de tuiles (64×32, losange isométrique) se déformeraient si on les
+  tournait. C'est un cycle de **miroirs** (normal / horizontal / vertical /
+  horizontal+vertical), via `sprite.setFlipX()`/`setFlipY()`. Suffisant pour
+  orienter un tronçon de route dans l'autre diagonale (un miroir inverse le sens
+  d'une diagonale), mais ne couvre pas tous les cas d'une vraie rotation à 4
+  angles — à garder en tête si un rendu ne "tombe pas juste" après un miroir.
+
+### Changement de format de données (impact important)
+
+Pour stocker l'orientation, **le format de cellule a changé** : chaque case de
+la grille est passée d'une simple chaîne (clé de texture) à un objet `{ key,
+flipX, flipY }` (voir `makeCell()`/`cellsEqual()` dans `mapLoader.js`). Impacté :
+`mapData.convertTiledToGrid()`, `mapLoader.placeTileAt()`/`buildFromGrid()`,
+toute la logique de `MapEditor`. **La clé de `localStorage` a été changée** de
+`net-empire-map-v1` à `net-empire-map-v2` pour qu'une éventuelle sauvegarde de
+la session précédente (ancien format, incompatible) soit simplement ignorée au
+lieu de planter silencieusement — elle repart proprement de la conversion Tiled.
+Si une future évolution du format de cellule est nécessaire, reproduire ce
+réflexe (changer la clé plutôt que tenter une migration silencieuse).
+
+### Bloqué
+
+Toujours aucune vérification visuelle (pas d'accès navigateur). Ces trois
+facilités touchent des interactions fines (glissé, clavier, aperçu visuel de
+l'orientation sur la vignette) jamais testées à l'usage — priorité de test pour
+l'utilisateur. Toujours en local uniquement, rien poussé.
+
+### Prochaine étape
+
+Faire tester par l'utilisateur : `Ctrl+Z` annule bien un tracé entier d'un coup,
+`Maj`+glisser trace droit sans déborder, `R`/bouton "Pivoter" change bien
+l'aperçu de la vignette sélectionnée et le rendu posé sur la carte. Une fois
+validé : commit + push (toujours en attente de l'accord explicite de
+l'utilisateur, qui a demandé d'éviter les push inutiles pour économiser des
+tokens).
+
+---
+
+## 2026-09-23 — Sélection + cadre contextuel (supprimer/pivoter/déplacer)
+
+### Fait
+
+Demande utilisateur : un cadre contextuel sur la tuile qu'on pose/sélectionne,
+avec ✖ (supprimer) en haut à gauche, ⟲ (pivoter) en haut à droite, et pouvoir
+glisser-déposer la tuile sélectionnée pour la déplacer — y compris sur une
+tuile déjà posée qu'on sélectionne après coup.
+
+- **Distinction clic / glissé** (nouveau, cœur du changement) : un geste de
+  pointeur est classé en observant le déplacement depuis `pointerdown`
+  (`pointer.getDistance()`, seuil 6px) :
+  - **Glissé** démarrant ailleurs que sur la sélection courante → peint en
+    continu avec le pinceau actuel (comportement historique inchangé, y
+    compris le verrouillage Maj = ligne droite).
+  - **Glissé** démarrant exactement sur la case sélectionnée → déplace la
+    tuile (le sprite suit le pointeur librement pendant le glissé, se recase
+    sur la grille au relâchement).
+  - **Clic simple** (pas de glissé) sur une case déjà occupée → la sélectionne
+    (cadre contextuel) SANS l'écraser avec le pinceau actuel.
+  - **Clic simple** sur une case vide → pose la tuile actuelle puis la
+    sélectionne aussitôt, pour ajustement immédiat.
+  - **Exception outil Gomme** : un clic sur une case occupée l'efface
+    directement (comme avant), ne la sélectionne pas — l'affordance "cliquer
+    pour sélectionner" n'a de sens que pour un pinceau réel.
+  - Décision non demandée explicitement mais nécessaire pour éviter toute
+    perte de données accidentelle : cliquer sur une case déjà occupée ne
+    l'écrase jamais silencieusement, il faut sélectionner puis Supprimer (✖)
+    explicitement, ou repeindre par un glissé (comportement de "pinceau qui
+    remplace en zone", inchangé).
+- **`SelectionFrame.js`** (nouveau fichier) : cadre contextuel en **DOM**
+  (comme le panneau d'édition), pas en objets Phaser dans le canvas — choix
+  délibéré pour garantir qu'un clic sur ✖/⟲ ne soit jamais aussi interprété
+  comme un clic sur la carte en dessous (deux systèmes d'input séparés, pas de
+  risque de conflit de propagation entre le DOM et l'InputPlugin de Phaser,
+  qui aurait été plus fragile à garantir sans pouvoir tester visuellement).
+  Le cadre lui-même a `pointer-events: none` pour laisser passer le
+  glisser-déposer vers le canvas ; seuls les 2 boutons captent les clics.
+  Repositionné à chaque frame (`MapScene.update()`) par conversion monde→écran
+  manuelle (`(worldX - camera.scrollX) * camera.zoom`), nécessaire même sans
+  glissé en cours puisque le zoom molette reste actif pendant l'édition.
+- **`MapEditor.js`** : `selectedCell`, `rotateSelected()`, `deleteSelected()`,
+  `getSelectedWorldPosition()`, `_previewMove()`/`_commitMove()` (déplacement
+  avec undo dédié : 2 changements dans une seule étape d'annulation — case
+  d'origine vidée + case de destination remplie, écrase la destination si elle
+  était déjà occupée). Raccourcis clavier ajoutés : **Suppr/Retour arrière**
+  supprime la sélection, **Échap** désélectionne, **R** pivote soit la
+  sélection courante si elle existe, soit le pinceau de la palette sinon.
+  Changer de calque actif désélectionne (évite de garder un cadre affiché sur
+  une tuile d'un calque qu'on ne regarde plus).
+- **`mapLoader.js`** : extraction de `nextOrientation()` (le cycle à 4 états
+  normal/miroir X/miroir Y/les deux), maintenant partagé entre le pinceau de
+  la palette et la rotation d'une tuile déjà posée — évitait de dupliquer la
+  même logique à deux endroits.
+
+### Bloqué
+
+**Zone à risque la plus importante de toute la session** — la distinction
+clic/glissé, le déplacement avec recasage sur grille, et le cadre contextuel
+qui suit la caméra sont tous des comportements interactifs fins, jamais
+testés à l'usage (toujours pas d'accès navigateur). Points precis à valider en
+priorité par l'utilisateur :
+- Un clic net (sans bouger la souris) sur une tuile déjà posée la sélectionne
+  bien sans la remplacer.
+- Glisser en partant EXACTEMENT de la tuile sélectionnée la déplace ; glisser
+  en partant d'ailleurs peint normalement.
+- Le cadre suit bien la tuile sélectionnée quand on zoome à la molette.
+- ✖ supprime, ⟲ pivote, et les deux s'enregistrent dans l'historique
+  d'annulation (`Ctrl+Z` après un clic sur ✖ doit faire réapparaître la tuile).
+
+### Prochaine étape
+
+Faire tester en priorité absolue le scénario décrit par l'utilisateur : poser
+un tronçon de route, le sélectionner, le faire pivoter (⟲) ou le déplacer par
+glisser-déposer, vérifier que ✖ le supprime proprement. Toujours en local
+uniquement (port 5175), rien poussé sur GitHub/Vercel.
+
+---
+
+## 2026-09-23 — Import de carte (JSON), pour compléter l'export
+
+### Fait
+
+Demande utilisateur : pouvoir réimporter un JSON exporté, pour tester des
+modifications risquées sans craindre de perdre la carte (exporter d'abord,
+essayer, réimporter si besoin).
+
+- **`mapData.parseGridFile(text)`** : valide et normalise le contenu d'un
+  fichier avant de l'utiliser — ne fait PAS confiance au JSON tel quel. Vérifie
+  `width`/`height` (entiers positifs), présence des 4 calques
+  (Sol/Routes/Bâtiments/Détails) à la bonne hauteur/largeur, et que chaque
+  cellule est soit `null` soit un objet avec une clé `key` en chaîne. Lève une
+  `Error` avec un message précis (quel calque, quelle ligne/colonne) en cas de
+  souci, plutôt que de planter plus loin dans le rendu avec une erreur obscure.
+  Normalise aussi `flipX`/`flipY` en booléens au passage (au cas où un fichier
+  modifié à la main les omettrait).
+- **Bouton "📂 Importer une carte (JSON)"** dans le panneau (à côté d'Exporter)
+  — ouvre un sélecteur de fichier, lit le contenu via `FileReader`, et en cas
+  d'erreur affiche le message via `window.alert()` (cohérent avec l'usage
+  existant de `confirm()` pour "Tout effacer").
+- Import réussi = sauvegarde en `localStorage` puis `scene.restart()` — même
+  mécanisme que "Revenir à la carte importée de Tiled", pour repartir sur des
+  bases propres (recalcul des bornes de caméra, nouvelle grille de sprites)
+  sans avoir à gérer un changement de dimensions de grille en direct dans une
+  scène déjà en cours.
+- Build revalidé (15 modules, aucune erreur). Toujours en local uniquement,
+  rien poussé.
+
+### Bloqué
+
+Pas de vérification visuelle — à tester : exporter un JSON, le réimporter,
+confirmer que la carte réapparaît identique. Aussi tester le cas d'erreur (un
+fichier invalide affiche bien un message clair au lieu de planter).
+
+### Prochaine étape
+
+Une fois l'utilisateur satisfait de l'ensemble de l'éditeur (sélection,
+annuler/rétablir, ligne droite, orientation, import/export), lui demander s'il
+veut passer au commit + push pour déployer sur Vercel — toujours en attente de
+son feu vert explicite.
+
+---
+
+## 2026-09-23 — Correction du décalage du cadre + réorganisation façon Figma
+
+### Fait
+
+**Bug corrigé** (signalé via capture d'écran `heylastcap.png`) : le cadre
+contextuel apparaissait décalé par rapport à la tuile réellement sélectionnée.
+Cause identifiée : `MapScene._updateSelectionFrame()` convertissait
+monde→écran avec `(worldX - scrollX) * zoom`, en oubliant que le zoom d'une
+caméra Phaser **pivote autour de son centre actuel** (`scrollX + width/2`), pas
+autour de l'origine du monde. Formule corrigée pour reproduire ce pivot
+central — le décalage ne devrait plus apparaître qu'à zoom=1 par coïncidence
+(l'ancienne formule était juste à zoom=1, ce qui explique qu'on ne l'ait
+repéré qu'après avoir zoomé/dézoomé).
+
+**Réorganisation de l'UI d'édition**, discutée et validée point par point avec
+l'utilisateur avant implémentation :
+- Le bloc de raccourcis clavier (`ne-hint`) est sorti du panneau latéral et
+  déplacé en **haut à gauche** de l'écran (élément DOM indépendant), pour ne
+  plus chevaucher le bouton "Mode édition"/panneau en haut à droite.
+- Le panneau latéral droit est réorganisé en **sections repliables** façon
+  Figma (`_createSection()`, chevron cliquable) :
+  - **"Vue"** (repliée par défaut) : uniquement la checklist de visibilité par
+    calque — séparée du choix du calque actif.
+  - **"Modifier espace"** (dépliée par défaut) : les 4 calques en radio, pour
+    choisir le calque actif à éditer.
+  - Gomme, indicateur d'orientation, bouton Pivoter, et tous les boutons
+    d'action (Exporter/Importer/Tout effacer/Revenir à Tiled) **restent dans
+    le panneau latéral**, hors des sections repliables — décision explicite de
+    l'utilisateur, pas déplacés vers la palette flottante.
+- **Palette flottante** (nouvel élément DOM, bas centre de l'écran, **sans
+  fond** — seules les cartes individuelles ont un fond) : affiche uniquement
+  les assets du **calque actuellement actif** (`mapLoader.LAYER_PALETTE`,
+  remplace l'ancien `PALETTE_GROUPS` qui montrait tout, tout le temps).
+  Re-remplie à chaque changement de calque actif. Décision utilisateur
+  explicite : filtrer plutôt que tout montrer, pour éviter les erreurs de
+  calque (ex. poser un arbre sur "Routes").
+- Chaque carte de la palette flottante montre son icône **et** son nom (pas
+  juste une info-bulle au survol comme avant), plus proche d'une barre
+  d'options Figma que de simples vignettes.
+- Rotation **inchangée** (touche `R` + bouton "Pivoter" dans le panneau latéral
+  + bouton ⟲ du cadre contextuel sur une tuile posée) — décision explicite de
+  l'utilisateur de ne pas la déplacer dans la palette.
+- Build revalidé (15 modules, aucune erreur). Toujours en local uniquement,
+  rien poussé.
+
+### Bloqué
+
+Aucune vérification visuelle directe par l'agent pour cette réorganisation —
+seule la capture d'écran fournie par l'utilisateur pour le bug de décalage a pu
+être inspectée. À confirmer par l'utilisateur : le cadre suit maintenant
+correctement la tuile sélectionnée à tous les niveaux de zoom, le bloc de
+raccourcis ne chevauche plus rien en haut à gauche, les sections "Vue"/
+"Modifier espace" se replient/déplient correctement, et la palette flottante
+change bien de contenu selon le calque actif sélectionné.
+
+### Prochaine étape
+
+Faire tester cette réorganisation complète par l'utilisateur en local (port
+5175). Une fois l'éditeur jugé satisfaisant dans l'ensemble, demander le feu
+vert pour commit + push vers GitHub/Vercel.
+
+---
+
+## 2026-09-23 — Outil "Déplacer" par défaut (la caméra était bloquée en édition)
+
+### Fait
+
+Bug UX signalé par l'utilisateur : dès que le mode édition était activé, le
+pan de la caméra (glisser + pincement) était **toujours** désactivé, peu
+importe l'outil — sans façon de simplement naviguer sur la carte sans risquer
+de peindre/effacer par erreur. Pire : comme il n'y avait pas de "vrai" outil
+neutre par défaut, `brushKey = null` (censé représenter la Gomme) était actif
+implicitement dès l'activation, alors qu'il faut au contraire toujours
+sélectionner un outil explicitement.
+
+- **Trois outils désormais mutuellement exclusifs** dans `MapEditor` :
+  `this.tool = 'move' | 'erase' | 'paint'`. `_syncCameraEnabled()` centralise
+  la règle : la caméra retrouve pan + pincement dès que l'édition est
+  inactive, **ou** que l'outil actif est 'move' — le zoom molette, lui, n'a
+  jamais été désactivé (indépendant de ce système).
+- **`setActive(true)` repart toujours sur l'outil Déplacement** (jamais la
+  Gomme par défaut) — corrige exactement le bug signalé.
+- **Touche `V`** : repasse en outil Déplacement à tout moment (ajoutée aux
+  raccourcis, convention reprise d'outils comme Figma). Ajoutée au bloc
+  d'indications clavier.
+- **Carte "Déplacer"** (icône main ✋) ajoutée en première position,
+  **permanente**, dans la palette flottante du bas — pas filtrée par calque
+  contrairement aux autres cartes, puisque c'est un outil de navigation, pas
+  un asset à poser.
+- **Gomme** : n'est plus jamais active par défaut, doit être cliquée
+  explicitement dans le panneau latéral (comme demandé). Son bouton appelle
+  désormais `onEraseTool()` plutôt que `onBrushChange(null)` — l'ancienne
+  confusion "brushKey null = gomme" est éliminée, `tool` et `brushKey` sont
+  maintenant des concepts bien séparés.
+- **Surlignage centralisé** : `EditorPanel.setActiveTool(tool, brushKey)`,
+  appelé en retour via `MapEditor.onToolChange`, est désormais la **seule**
+  source de vérité pour savoir quelle carte/bouton est visuellement
+  sélectionné(e) — que le changement d'outil vienne d'un clic (carte
+  Déplacer, Gomme, carte de palette) ou d'un raccourci clavier (`V`). Avant
+  ce refactor, chaque gestionnaire de clic gérait sa propre classe
+  `selected`, ce qui aurait désynchronisé l'affichage dès qu'on aurait changé
+  d'outil au clavier.
+- Build revalidé (15 modules, aucune erreur). Toujours en local uniquement,
+  rien poussé.
+
+### Bloqué
+
+Pas de vérification visuelle directe. À tester en priorité : la caméra se
+déplace/zoome/pince bien normalement à l'activation du mode édition (sans
+avoir à cliquer sur quoi que ce soit d'abord), la Gomme n'agit que si on l'a
+cliquée, `V` ramène bien en Déplacement à tout moment, et la carte "Déplacer"
+reste visible et fonctionnelle peu importe le calque actif sélectionné dans
+"Modifier espace".
+
+### Prochaine étape
+
+Faire tester ce correctif par l'utilisateur. Une fois l'éditeur dans son
+ensemble jugé satisfaisant, demander le feu vert pour commit + push vers
+GitHub/Vercel — plusieurs sessions locales non poussées s'accumulent
+maintenant (sélection/cadre contextuel, import/export, réorganisation Figma,
+outil Déplacement), à regrouper en un ou plusieurs commits une fois validé.
+
+---
+
+## 2026-09-23 — Correction de 3 assets sans transparence (QG, Cinéma, École)
+
+### Fait
+
+- **Renommage** : la carte "Déplacer" de la palette flottante s'appelle
+  maintenant "Se déplacer" (demande utilisateur).
+- **Diagnostic** d'un bug signalé par l'utilisateur ("certains assets ont un
+  fond, pas transparent") : vérifié au niveau du fichier (`file`) que
+  exactement 3 assets sur toute la collection sont en **PNG RGB sans canal
+  alpha** — `base-QG.png` (QG), `cinema.png` (Cinéma), `ecole.png` (École).
+  Un PNG RGB ne peut techniquement pas être transparent, quel que soit son
+  contenu. Confirmé visuellement (`Read` sur le fichier) : ces 3 images
+  contiennent un **damier gris/blanc peint en dur dans les pixels**, pas une
+  vraie transparence — artefact courant des générateurs d'images IA qui
+  représentent visuellement "ceci doit être transparent" sans encoder de
+  canal alpha réel. Les 6 autres bâtiments et tous les autres assets
+  (tuiles/props/véhicules/personnages/UI) sont bien en RGBA, non affectés.
+- **Correction automatisée** plutôt que de renvoyer le problème à
+  l'utilisateur : script Node.js (`pngjs`, installé dans le scratchpad, pas
+  dans les dépendances du projet) qui détoure le damier par **propagation
+  depuis les bords de l'image** (flood-fill 4-connexe) — un pixel devient
+  transparent seulement s'il est atteignable depuis un bord via une chaîne de
+  pixels dont la couleur est proche d'une des couleurs du damier
+  (échantillonnées sur tout le pourtour de l'image, pas juste les coins,
+  tolérance de couleur 35). Choisi plutôt qu'un simple remplacement de couleur
+  global, plus sûr : un détail gris/blanc **entouré** par le reste de
+  l'illustration (ex. la climatisation sur le toit du QG) n'est jamais touché
+  car non connecté au bord.
+- **Validation rigoureuse avant d'appliquer** : le rendu d'un PNG transparent
+  dans un visualiseur d'image ressemble lui-même à un damier (convention
+  universelle), donc impossible de juger le résultat à l'œil sur fond
+  neutre — vérifié à la place (a) les valeurs brutes du canal alpha
+  (0 en bordure, 255 sur le bâtiment) et (b) un rendu de contrôle en
+  compositant l'image sur un fond magenta uni, qui prouve sans ambiguïté la
+  transparence réelle. Un premier essai avec une tolérance plus stricte (18,
+  coins seulement) laissait des îlots de damier isolés sur École (carrés
+  légèrement différents de teinte, non connectés au flood-fill) — corrigé en
+  élargissant l'échantillonnage à toute la bordure et en montant la tolérance.
+- Les 3 fichiers corrigés remplacent les originaux dans
+  `public/assets/buildings/` (confirmés RGBA via `file` après coup). Build
+  revalidé (15 modules, aucune erreur), assets re-vérifiés servis correctement
+  par le serveur de dev local.
+
+### Question posée par l'utilisateur (réponse donnée, pas encore actée)
+
+L'utilisateur a demandé si une fonctionnalité d'**ajout d'assets personnalisés**
+(popup, choix de catégorie, import direct) serait utile. Réponse donnée :
+probablement oui à terme, mais recommandé de ne pas l'ajouter tout de suite —
+voir la réponse complète dans la conversation. Pas implémenté, en attente de
+décision de l'utilisateur.
+
+### Bloqué
+
+Pas de vérification en jeu réel (juste en dehors de Phaser, via composition
+manuelle) — à confirmer par l'utilisateur que QG/Cinéma/École s'affichent bien
+sans fond dans l'éditeur maintenant.
+
+### Prochaine étape
+
+Faire confirmer par l'utilisateur que les 3 bâtiments s'affichent correctement
+sans damier dans le jeu. Statuer sur l'ajout éventuel d'un import d'assets
+personnalisés. Toujours en attente du feu vert pour commit + push (plusieurs
+sessions locales accumulées, à regrouper).
+
+---
+
+## 2026-09-23 — Orientation du pinceau mémorisée par type d'asset
+
+### Fait
+
+Remarque utilisateur : pivoter un asset (route en miroir horizontal par
+exemple) devrait laisser supposer que les prochains posés vont dans le même
+sens — hors, `setBrush()` remettait systématiquement l'orientation à zéro à
+chaque nouvelle sélection dans la palette, obligeant à repivoter à chaque
+fois. Proposé et validé avec l'utilisateur : mémoriser l'orientation **par
+type d'asset précis** (une `Map` clé de texture → `{flipX, flipY}` dans
+`MapEditor`) plutôt qu'une seule valeur globale — reprendre "route droite" en
+miroir horizontal après avoir posé un bâtiment (non affecté) redonne le
+miroir horizontal, sans report accidentel d'une orientation d'un type d'asset
+complètement différent.
+
+- `MapEditor.setBrush()` : relit `brushOrientations.get(textureKey)` (par
+  défaut `{flipX:false, flipY:false}` si jamais vu) au lieu de toujours
+  réinitialiser.
+- `MapEditor.cycleOrientation()` : sauvegarde la nouvelle orientation dans
+  `brushOrientations` pour la clé actuelle.
+- **Bug d'ordre d'événements corrigé au passage** dans `EditorPanel` : comme
+  `onOrientationChange` est émis par `setBrush()` AVANT `onToolChange`, le
+  correctif visuel (transform CSS de la vignette) arrivait sur l'ANCIENNE
+  carte encore sélectionnée à ce moment-là, pas la nouvelle — l'affichage de
+  l'icône (miroir ou pas) et le texte "Orientation : ..." auraient pu se
+  désynchroniser. Corrigé en mémorisant `_currentFlipX/Y` dans `EditorPanel` et
+  en les ré-appliquant explicitement à la bonne carte dans
+  `_applyToolHighlight()`, plutôt que de dépendre de l'ordre d'arrivée des
+  deux callbacks.
+- Cette mémoire d'orientation est volontairement **en mémoire seulement**
+  (pas sauvegardée avec la carte) — c'est une préférence d'édition pour la
+  session en cours, pas une donnée de la carte elle-même.
+- Build revalidé (15 modules, aucune erreur). Toujours en local uniquement.
+
+### Bloqué
+
+Pas de vérification visuelle — à tester : pivoter "route droite", passer à un
+bâtiment (aucune orientation ne doit apparaître dessus), revenir sur "route
+droite" (doit retrouver le miroir), et confirmer que l'icône de la vignette et
+le texte "Orientation : ..." restent synchronisés dans tous les cas.
+
+### Prochaine étape
+
+Inchangée : faire tester l'ensemble de l'éditeur, puis feu vert pour commit +
+push.
+
+---
+
+## 2026-09-23 — Petites retouches UI : Gomme visible/rouge, texte raccourcis
+
+### Fait
+
+- **Gomme** : n'était nommée que par une info-bulle au survol (`title`), pas
+  un texte visible — remplacée par une carte identique aux cartes de la
+  palette (icône + nom "Gomme" toujours visible), coloriée en **rouge**
+  (`#A23B2A`, palette verrouillée) plutôt que le brun neutre précédent.
+  Réutilise `_createToolCard()` (déjà utilisé pour "Se déplacer") plutôt que
+  l'ancien style `.ne-swatch`, maintenant supprimé (plus aucune référence).
+- **Texte des raccourcis** : "V déplacer" → "V se déplacer", cohérent avec le
+  nom de la carte.
+- Build revalidé (15 modules, aucune erreur).
+
+### Prochaine étape
+
+Inchangée : faire tester l'ensemble de l'éditeur, puis feu vert pour commit +
+push. Statuer sur l'ajout éventuel d'un import d'assets personnalisés (popup +
+catégorie) — pas encore construit, voir réponse donnée à l'utilisateur dans la
+conversation.
