@@ -11,6 +11,7 @@
 // sauvegarde, export) ne manipule que ce format-ci.
 
 import { makeCell } from './mapLoader.js';
+import * as customAssets from './customAssets.js';
 
 export const LAYER_NAMES = ['ground', 'roads', 'buildings', 'details'];
 
@@ -156,8 +157,13 @@ export function clearSavedGrid() {
   }
 }
 
+// Embarque les assets personnalisés (voir customAssets.js) dans le fichier
+// exporté — sinon réimporter la carte sur un autre navigateur (ou après avoir
+// vidé le stockage local) afficherait une texture manquante pour toute tuile
+// utilisant un asset personnalisé, sans façon de comprendre pourquoi.
 export function exportGridAsFile(grid) {
-  const blob = new Blob([JSON.stringify(grid, null, 2)], { type: 'application/json' });
+  const payload = { ...grid, customAssets: customAssets.loadCustomAssets() };
+  const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
@@ -172,7 +178,10 @@ export function exportGridAsFile(grid) {
  * Valide et normalise le contenu texte d'un fichier de carte (issu de
  * exportGridAsFile ou modifié à la main). Lève une Error avec un message
  * explicite si le fichier n'a pas la bonne forme, plutôt que de planter plus
- * loin dans le rendu avec une erreur obscure.
+ * loin dans le rendu avec une erreur obscure. Retourne { grid, customAssets }
+ * — les assets personnalisés embarqués doivent être fusionnés dans le
+ * registre local par l'appelant (voir MapScene._importMapFromFile) avant que
+ * la grille ne soit affichée, sinon leurs textures seraient manquantes.
  */
 export function parseGridFile(text) {
   let data;
@@ -218,5 +227,16 @@ export function parseGridFile(text) {
     }
   }
 
-  return normalized;
+  const importedCustomAssets = Array.isArray(data.customAssets)
+    ? data.customAssets.filter(
+        (a) =>
+          a &&
+          typeof a.key === 'string' &&
+          typeof a.label === 'string' &&
+          typeof a.category === 'string' &&
+          typeof a.dataUrl === 'string'
+      )
+    : [];
+
+  return { grid: normalized, customAssets: importedCustomAssets };
 }

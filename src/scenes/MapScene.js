@@ -2,9 +2,11 @@ import Phaser from 'phaser';
 import { CameraController } from '../CameraController.js';
 import * as mapLoader from '../mapLoader.js';
 import * as mapData from '../mapData.js';
+import * as customAssets from '../customAssets.js';
 import { MapEditor } from '../editor/MapEditor.js';
 import { EditorPanel } from '../editor/EditorPanel.js';
 import { SelectionFrame } from '../editor/SelectionFrame.js';
+import { AddAssetModal } from '../editor/AddAssetModal.js';
 
 const SELECTION_FRAME_WORLD_SIZE = 56; // demi-tuile de marge autour d'une tuile 64×32
 
@@ -65,6 +67,10 @@ export class MapScene extends Phaser.Scene {
       onRotate: () => this.mapEditor.rotateSelected(),
     });
 
+    this.addAssetModal = new AddAssetModal({
+      onSubmit: (fields) => this._addCustomAsset(fields),
+    });
+
     // scene.restart() (bouton "Revenir à la carte importée de Tiled") relance
     // create() sans détruire les éléments DOM des panneaux précédents ni
     // retirer l'écouteur clavier de l'éditeur précédent — il faut les nettoyer
@@ -72,6 +78,7 @@ export class MapScene extends Phaser.Scene {
     this.events.once('shutdown', () => {
       this.editorPanel?.destroy();
       this.selectionFrame?.destroy();
+      this.addAssetModal?.destroy();
       this.mapEditor?.destroy();
     });
 
@@ -86,6 +93,7 @@ export class MapScene extends Phaser.Scene {
       onExport: () => mapData.exportGridAsFile(grid),
       onImport: (file) => this._importMapFromFile(file),
       onResetToGrass: () => this.mapEditor.resetToGrassOnly(),
+      onOpenAddAsset: () => this.addAssetModal.open(),
       onClearSaved: () => {
         mapData.clearSavedGrid();
         this.scene.restart();
@@ -123,16 +131,18 @@ export class MapScene extends Phaser.Scene {
     this.selectionFrame.setScreenRect(screenX, screenY, SELECTION_FRAME_WORLD_SIZE * camera.zoom);
   }
 
-  /** Lit et valide un fichier JSON exporté (ou modifié à la main), le
-   * sauvegarde en local et relance la scène pour repartir dessus proprement —
-   * même mécanisme que "Revenir à la carte importée de Tiled", pour ne pas
-   * avoir à gérer un changement de dimensions de grille en direct. */
+  /** Lit et valide un fichier JSON exporté (ou modifié à la main), fusionne
+   * les assets personnalisés qu'il embarque dans le registre local, sauvegarde
+   * la carte et relance la scène pour repartir dessus proprement — même
+   * mécanisme que "Revenir à la carte importée de Tiled", pour ne pas avoir à
+   * gérer un changement de dimensions de grille en direct. */
   _importMapFromFile(file) {
     const reader = new FileReader();
     reader.onload = () => {
       try {
-        const importedGrid = mapData.parseGridFile(reader.result);
-        mapData.saveGrid(importedGrid);
+        const { grid, customAssets: importedCustomAssets } = mapData.parseGridFile(reader.result);
+        customAssets.mergeCustomAssets(importedCustomAssets);
+        mapData.saveGrid(grid);
         this.scene.restart();
       } catch (err) {
         window.alert(`Import impossible : ${err.message}`);
@@ -140,5 +150,19 @@ export class MapScene extends Phaser.Scene {
     };
     reader.onerror = () => window.alert('Impossible de lire ce fichier.');
     reader.readAsText(file);
+  }
+
+  /** Callback de AddAssetModal : enregistre le nouvel asset dans le registre
+   * local, charge sa texture dans Phaser à la volée (le jeu tourne déjà, on
+   * n'est plus dans preload()), et rafraîchit la palette flottante une fois
+   * chargée pour qu'il apparaisse immédiatement sans recharger la page. */
+  _addCustomAsset({ label, category, dataUrl }) {
+    const entry = customAssets.addCustomAsset({ label, category, dataUrl });
+
+    this.load.image(entry.key, entry.dataUrl);
+    this.load.once('complete', () => {
+      this.editorPanel?.refreshPalette();
+    });
+    this.load.start();
   }
 }

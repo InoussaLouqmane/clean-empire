@@ -42,6 +42,7 @@ export class EditorPanel {
     onRotateBrush,
     onMoveTool,
     onEraseTool,
+    onOpenAddAsset,
   }) {
     this.onToggle = onToggle;
     this.onLayerChange = onLayerChange;
@@ -54,6 +55,7 @@ export class EditorPanel {
     this.onRotateBrush = onRotateBrush;
     this.onMoveTool = onMoveTool;
     this.onEraseTool = onEraseTool;
+    this.onOpenAddAsset = onOpenAddAsset;
 
     this.active = false;
     this.activeLayer = 'ground';
@@ -293,14 +295,10 @@ export class EditorPanel {
     }
   }
 
-  /** Gomme + orientation + pivoter — restent dans le panneau latéral (pas
-   * dans la palette flottante), à la demande de l'utilisateur. */
+  /** Orientation + pivoter — restent dans le panneau latéral. La Gomme,
+   * elle, est dans la palette flottante (voir _buildFloatingPalette) — à
+   * l'opposé de "Se déplacer", demande utilisateur du 2026-09-23. */
   _renderToolsSection() {
-    const toolsRow = document.createElement('div');
-    toolsRow.className = 'ne-swatches';
-    toolsRow.appendChild(this._createEraserSwatch());
-    this.panel.appendChild(toolsRow);
-
     this.orientationLabel = document.createElement('div');
     this.orientationLabel.className = 'ne-orientation-label';
     this.orientationLabel.textContent = 'Orientation : normale';
@@ -330,11 +328,14 @@ export class EditorPanel {
     this.floatingPalette.hidden = true;
     document.body.appendChild(this.floatingPalette);
 
-    // Carte "Déplacer" : permanente, jamais filtrée par calque (c'est un
-    // outil de navigation, pas un asset à poser) — conservée en mémoire pour
-    // être réinsérée à chaque _renderFloatingPalette().
+    // Cartes "Se déplacer" (tout à gauche) et "Gomme" (tout à droite) :
+    // permanentes, jamais filtrées par calque — ce sont des outils, pas des
+    // assets à poser. Conservées en mémoire pour être réinsérées aux deux
+    // extrémités à chaque _renderFloatingPalette().
     this.moveCard = this._createToolCard('✋', 'Se déplacer', () => this.onMoveTool());
     this.floatingPalette.appendChild(this.moveCard);
+
+    this.eraserCard = this._createEraserSwatch();
   }
 
   _createToolCard(iconText, label, onClick) {
@@ -357,17 +358,28 @@ export class EditorPanel {
     return card;
   }
 
+  /** Appelé depuis MapScene après le chargement d'un nouvel asset
+   * personnalisé, pour qu'il apparaisse dans la palette sans recharger la
+   * page. */
+  refreshPalette() {
+    this._renderFloatingPalette();
+  }
+
   /** Re-remplit la palette flottante avec la carte "Déplacer" (permanente) +
-   * uniquement les assets du calque actif (voir mapLoader.LAYER_PALETTE) —
-   * appelée au démarrage et à chaque changement de calque actif. */
+   * uniquement les assets du calque actif — intégrés (mapLoader.LAYER_PALETTE)
+   * ET personnalisés assignés à cette catégorie (voir customAssets.js) —
+   * appelée au démarrage et à chaque changement de calque actif, ainsi
+   * qu'après l'ajout d'un nouvel asset personnalisé. */
   _renderFloatingPalette() {
     this.floatingPalette.innerHTML = '';
     this.floatingPalette.appendChild(this.moveCard);
 
-    const items = mapLoader.LAYER_PALETTE[this.activeLayer] ?? [];
+    const items = mapLoader.getPaletteForLayer(this.activeLayer);
     for (const item of items) {
       this.floatingPalette.appendChild(this._createPaletteCard(item));
     }
+
+    this.floatingPalette.appendChild(this.eraserCard);
 
     this._applyToolHighlight();
   }
@@ -428,7 +440,11 @@ export class EditorPanel {
       icon.style.backgroundColor = '#1f5e52';
       icon.textContent = '💧';
     } else {
-      const path = mapLoader.ASSET_PATHS[item.key];
+      // item.path est déjà résolu par mapLoader.getPaletteForLayer() : un
+      // chemin de fichier pour un asset intégré, une data URL base64 pour un
+      // asset personnalisé — la carte n'a pas besoin de connaître la
+      // différence.
+      const path = item.path;
       const thumb = SPRITE_THUMB[item.key];
       icon.style.backgroundImage = `url("${path}")`;
       if (thumb) {
@@ -476,6 +492,13 @@ export class EditorPanel {
   }
 
   _renderActionsSection() {
+    const addAssetBtn = document.createElement('button');
+    addAssetBtn.type = 'button';
+    addAssetBtn.className = 'ne-export-btn';
+    addAssetBtn.textContent = '➕ Ajouter un asset personnalisé';
+    addAssetBtn.addEventListener('click', () => this.onOpenAddAsset());
+    this.panel.appendChild(addAssetBtn);
+
     const exportBtn = document.createElement('button');
     exportBtn.type = 'button';
     exportBtn.className = 'ne-export-btn';

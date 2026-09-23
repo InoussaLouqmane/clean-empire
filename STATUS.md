@@ -951,3 +951,90 @@ Inchangée : faire tester l'ensemble de l'éditeur, puis feu vert pour commit +
 push. Statuer sur l'ajout éventuel d'un import d'assets personnalisés (popup +
 catégorie) — pas encore construit, voir réponse donnée à l'utilisateur dans la
 conversation.
+
+---
+
+## 2026-09-23 — Déploiement : tout l'éditeur en jeu poussé sur GitHub/Vercel
+
+### Fait
+
+Feu vert utilisateur reçu ("Déploie sur github et vercel") après plusieurs
+sessions locales accumulées sans push (sur demande explicite précédente de
+l'utilisateur, pour économiser des tokens). Un seul commit regroupant :
+format de carte propre à Net Empire (`mapData.js`), éditeur en jeu complet
+(`editor/MapEditor.js`, `editor/EditorPanel.js`, `editor/SelectionFrame.js`),
+outil Déplacement par défaut (`CameraController.enabled`), et la correction
+des 3 assets de bâtiments sans transparence (QG/Cinéma/École). Poussé sur
+`main`, build Vercel confirmé Ready (16s), URL de production revérifiée
+(page + un asset + `net-empire.tmj` répondent 200).
+
+**Non inclus dans ce commit** (travail encore en cours au moment du feu vert) :
+le déplacement de la carte Gomme vers la palette flottante, et le début du
+système d'assets personnalisés (`customAssets.js` créé et déjà branché dans
+`mapLoader.js`, mais le popup d'ajout et le câblage `EditorPanel`/`MapScene`
+pas encore faits) — ces deux chantiers continuent en local, seront poussés
+dans un commit séparé une fois terminés.
+
+### Prochaine étape
+
+Terminer : déplacer la carte Gomme dans la palette flottante (à l'opposé de
+"Se déplacer"), puis le popup d'ajout d'assets personnalisés (fichier + nom +
+catégorie). Tester en local, puis redemander le feu vert avant de repousser.
+
+---
+
+## 2026-09-23 — Gomme déplacée + import d'assets personnalisés terminé
+
+### Fait
+
+- **Carte "Gomme"** déplacée du panneau latéral vers la palette flottante,
+  positionnée en dernier (à l'opposé de "Se déplacer", tout à gauche) — les
+  deux sont désormais des cartes permanentes de la palette, jamais filtrées
+  par calque, ajoutées une fois dans `_buildFloatingPalette()` et réinsérées
+  aux deux extrémités à chaque `_renderFloatingPalette()`.
+- **Import d'assets personnalisés terminé** (popup demandé par l'utilisateur) :
+  - `src/customAssets.js` (nouveau) : registre localStorage
+    (`net-empire-custom-assets-v1`) des assets ajoutés — `{ key, label,
+    category, dataUrl }`. Pas de serveur pour stocker un vrai fichier (site
+    statique), donc l'image est encodée en base64 directement dans le
+    navigateur. Limite volontaire de 1,5 Mo par image pour rester raisonnable
+    vis-à-vis du quota localStorage (quelques Mo selon navigateur).
+  - `src/editor/AddAssetModal.js` (nouveau) : popup DOM — fichier image,
+    aperçu en direct, nom (préremplit depuis le nom de fichier), catégorie
+    (calque de destination, un des 4 existants). Valide le type MIME et la
+    taille avant d'accepter le fichier.
+  - `mapLoader.js` : `preload()` charge aussi les assets personnalisés déjà
+    enregistrés ; `defaultDisplaySize()` leur donne une taille selon leur
+    catégorie (même convention que les assets intégrés) ; nouvelle fonction
+    `getPaletteForLayer(layerName)` qui fusionne assets intégrés + personnalisés
+    d'un calque avec leur chemin d'image déjà résolu (fichier ou data URL) —
+    l'éditeur n'a pas besoin de connaître la différence.
+  - `MapScene._addCustomAsset()` : enregistre l'asset, charge sa texture dans
+    Phaser **à la volée** (`scene.load.image()` + `.start()`, le jeu tourne
+    déjà, on n'est plus dans `preload()`), puis rafraîchit la palette flottante
+    une fois chargée — apparaît immédiatement, pas besoin de recharger la page.
+  - **Portabilité de l'export/import** : un asset personnalisé n'existe que
+    dans le navigateur qui l'a ajouté — sans rien faire, exporter la carte
+    puis la réimporter ailleurs afficherait une texture manquante. Corrigé :
+    `mapData.exportGridAsFile()` embarque désormais aussi
+    `customAssets.loadCustomAssets()` dans le fichier exporté ;
+    `parseGridFile()` retourne maintenant `{ grid, customAssets }` (changement
+    de signature, `MapScene._importMapFromFile()` mis à jour en conséquence) ;
+    les assets embarqués sont fusionnés dans le registre local
+    (`customAssets.mergeCustomAssets()`, sans dupliquer une clé déjà connue)
+    avant de recharger la scène.
+- Build revalidé (17 modules, aucune erreur). Toujours en local uniquement.
+
+### Bloqué
+
+Pas de vérification visuelle. À tester en priorité : le popup s'ouvre/se
+ferme bien, l'aperçu d'image s'affiche, l'asset ajouté apparaît immédiatement
+dans la palette flottante du bon calque sans recharger la page, et
+exporter/réimporter une carte avec un asset personnalisé le restaure bien
+(pas de texture manquante).
+
+### Prochaine étape
+
+Faire tester par l'utilisateur l'ensemble des nouveautés (Gomme repositionnée,
+ajout d'asset personnalisé, portabilité export/import). Une fois validé,
+redemander le feu vert pour un nouveau commit + push.
