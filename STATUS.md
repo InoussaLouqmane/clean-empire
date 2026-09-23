@@ -332,3 +332,60 @@ calques de tuiles et calque d'objets (ce qui validerait la conversion de coordon
 `objectToScreen`), pas de tuile visuellement aberrante. Une fois confirmé : commit +
 push (déploiement Vercel automatique). Si le positionnement des objets est décalé,
 revoir en priorité `objectToScreen()` dans `mapLoader.js`.
+
+---
+
+## 2026-09-23 — Correction : tuiles de route manquantes en production (encodage Unicode)
+
+### Fait
+
+- **Bug signalé par l'utilisateur** via une capture d'écran de la démo déployée
+  (`clean-empire.vercel.app`) : de larges diagonales de cases noires avec un
+  contour vert (texture "manquante" par défaut de Phaser) formant un grand X sur
+  toute la carte, au lieu des tuiles de route.
+- **Cause exacte identifiée** : 4 fichiers d'assets (`Route droite isométrique`,
+  `Route en angle isométrique`, `Intersection isométrique`, `Poubelle
+  débordante`) étaient enregistrés sur le disque — et donc dans git, et donc sur
+  Vercel — avec leurs caractères accentués en **Unicode NFD** (é = "e" +
+  accent combinant séparé, 2 caractères) au lieu de la forme **NFC** standard (é
+  = 1 seul caractère). Origine : ces 4 fichiers sont ceux qui avaient échoué à la
+  copie via `cp` en tout début de projet (voir la toute première entrée de ce
+  journal) et avaient été copiés via PowerShell à la place — la commande
+  PowerShell a préservé l'encodage NFD du zip source (probablement généré sur
+  macOS, où NFD est courant). `mapLoader.js` référence ces fichiers avec des
+  chaînes accentuées "normales" (NFC), qui ne correspondent donc jamais
+  byte-à-byte au nom réel du fichier → 404 silencieux → texture manquante dans
+  Phaser. Vérifié précisément au niveau des octets bruts (`ls | cat -A`), pas
+  supposé — les autres fichiers accentués (ex. `marché.png`, `Déchetterie.png`)
+  étaient déjà en NFC et n'ont jamais posé de problème, d'où la confusion
+  possible si on avait supposé "tous les accents posent problème".
+- **Correction** : renommage des 4 fichiers sur le disque en NFC (bytes UTF-8
+  vérifiés après coup : `0xC3 0xA9` pour "é", plus la forme NFC), via `mv` en
+  bash pour éviter le piège où PowerShell/.NET peut afficher un nom "normalisé"
+  sans que ça reflète les octets réels stockés par NTFS — c'est précisément ce
+  qui a rendu le diagnostic plus long que prévu (une première tentative de
+  vérification/renommage via PowerShell `Get-ChildItem`/`.Normalize()` n'a rien
+  détecté, alors que le problème était bien réel).
+- **Scan complet** de `public/assets/` confirmant qu'aucun autre fichier n'a ce
+  problème après correction.
+- Build (`npm run build`) revalidé, commit + push effectués, nouveau déploiement
+  Vercel confirmé Ready, et les 4 URLs précédemment en 404 revérifiées
+  individuellement en production : toutes en 200 désormais.
+
+### Bloqué
+
+- Toujours aucune vérification visuelle directe par l'agent (pas d'accès
+  navigateur) — la correction est validée par le code d'octets et les codes HTTP
+  200, pas par un rendu observé. C'est l'utilisateur qui a repéré le bug
+  initialement via une capture d'écran ; il faudra une nouvelle capture pour
+  confirmer que les routes s'affichent bien maintenant.
+
+### Prochaine étape
+
+Demander à l'utilisateur une nouvelle capture d'écran de
+https://clean-empire.vercel.app pour confirmer que les routes s'affichent
+correctement (fini les cases noires). Profiter de cette capture pour aussi
+valider le positionnement des bâtiments (objet layer) et l'absence d'autres
+textures manquantes ailleurs sur la carte. Toujours bloqué sur l'export Tiled du
+rôle 5 pour la suite (contenu déjà reçu et branché, mais si une nouvelle version
+de la carte arrive, revoir `mapLoader.js`).
