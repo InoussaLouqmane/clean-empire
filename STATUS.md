@@ -205,3 +205,45 @@ Tiled du rôle 5 pour la suite — une fois reçu, brancher dans `mapLoader.js`.
 Faire confirmer par l'utilisateur que les 4 coins du plateau (haut, bas, gauche, droite)
 sont désormais tous atteignables en pan, dans les deux sens verticaux. Toujours bloqué
 sur l'export Tiled du rôle 5 — une fois reçu, brancher dans `mapLoader.js`.
+
+---
+
+## 2026-09-23 — Zoom mini abaissé + publication GitHub/Vercel
+
+### Fait
+
+- **Zoom minimum** abaissé de ×0.5 à **×0.3** dans `CalibrationScene.js` (demande
+  utilisateur : pouvoir dézoomer davantage). La marge de bornes existante (6 tuiles)
+  suffit à ce niveau de zoom sur une grille 80×80, pas de changement nécessaire côté
+  bornes de caméra.
+- **Dépôt GitHub** créé et poussé : [github.com/InoussaLouqmane/clean-empire](https://github.com/InoussaLouqmane/clean-empire)
+  (public, nom choisi par l'utilisateur : `clean-empire`). Le dossier du projet étant
+  la racine du profil Windows, l'ajout git a été fait fichier par fichier / dossier par
+  dossier explicitement (jamais `git add -A` ni `git add .`) pour ne prendre que les
+  fichiers du projet — vérifié via `git status --short` avant le commit. L'archive
+  source des assets (`GameDesignWorkShop-*.zip`) est exclue du repo (déjà réorganisée
+  dans `public/assets/`, pas besoin de la dupliquer).
+- **README.md réécrit** : présentation plus riche (badges, palette visuelle, concept du
+  jeu, lien de démo, structure du projet, doc pour reprendre le projet).
+- **Déploiement Vercel** : projet `clean-empire` créé sous le scope `louqmanes-projects`
+  et connecté au dépôt GitHub (`vercel git connect`) pour un déploiement continu à
+  chaque push sur `main`. Premier déploiement déclenché par un push (pas d'upload de
+  fichiers locaux, pour éviter tout risque lié au fait que le dossier de travail est la
+  racine du profil Windows). Build réussi (14s). URL de production vérifiée : canvas
+  (HTTP 200) et un asset test (`tiles/Isometric Bare Grass Tile...png`, HTTP 200)
+  répondent correctement.
+  - **Démo live** : https://clean-empire.vercel.app
+
+### Bloqué
+
+- Toujours pas de vérification visuelle en navigateur dans cette session (extension
+  Claude in Chrome non connectée) — la démo live a été validée par requêtes HTTP
+  (canvas + un asset), pas à l'œil, ni sur le rendu réel du jeu déployé.
+- Export Tiled du rôle 5 toujours non reçu.
+
+### Prochaine étape
+
+Faire confirmer par l'utilisateur que la démo live (https://clean-empire.vercel.app)
+s'affiche et se comporte comme en local (canvas plein écran, damier de gazon, pan/zoom
+×0.3 à ×2.5/inertie). Toujours bloqué sur l'export Tiled du rôle 5 — une fois reçu,
+brancher dans `mapLoader.js`.

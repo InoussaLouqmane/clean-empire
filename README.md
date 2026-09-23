@@ -12,6 +12,7 @@ ramène tout au dépôt, et regarde ton FCFA et ta réputation grimper.
 [![Vite](https://img.shields.io/badge/Vite-5-646CFF?logo=vite&logoColor=white)](https://vitejs.dev/)
 [![JavaScript](https://img.shields.io/badge/JavaScript-ES_Modules-F7DF1E?logo=javascript&logoColor=black)](https://developer.mozilla.org/docs/Web/JavaScript)
 [![Status](https://img.shields.io/badge/status-en_construction-orange)](./STATUS.md)
+[![Deployed on Vercel](https://img.shields.io/badge/deployed_on-Vercel-000000?logo=vercel&logoColor=white)](https://clean-empire.vercel.app)
 
 </div>
 
