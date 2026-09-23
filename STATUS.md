@@ -247,3 +247,88 @@ Faire confirmer par l'utilisateur que la démo live (https://clean-empire.vercel
 s'affiche et se comporte comme en local (canvas plein écran, damier de gazon, pan/zoom
 ×0.3 à ×2.5/inertie). Toujours bloqué sur l'export Tiled du rôle 5 — une fois reçu,
 brancher dans `mapLoader.js`.
+
+---
+
+## 2026-09-23 — Export Tiled reçu et branché dans mapLoader.js
+
+### Fait
+
+- **Export Tiled reçu** (`Map v3.tmj`, isométrique, 64×32, 40×30 tuiles, 4 calques de
+  tuiles Ground/Roads/Buildings/Details + 2 calques d'objets Repères/Bâtiments du jeu),
+  copié dans `public/maps/net-empire.tmj`.
+- **Tileset externe (`net_empire_demo.tsx`) obtenu séparément** — le `.tmj` le
+  référence par un chemin (`../Documents/Codex/.../net_empire_demo.tsx`) qui
+  n'existe pas sur cette machine ; deux tentatives de réexport (`.tmx` puis
+  re-`.tmj`) n'ont rien changé car le problème n'était pas le format du fichier
+  carte mais la dépendance externe elle-même. L'utilisateur a fini par fournir le
+  `.tsx` directement.
+- **Constat après lecture du `.tsx`** : ses images (`assets/grass.png`,
+  `assets/L_hopital.png`, etc.) sont des **placeholders génériques**, absents du
+  projet et différents de nos vrais assets — plusieurs tuiles y sont même
+  explicitement nommées "(placeholder)" (Ouvrier, Tricycle, Camion). Décision
+  prise avec l'utilisateur : ignorer les images du `.tsx`, faire correspondre
+  chaque tuile/objet à nos vrais assets par le **sens du nom**, pas par le
+  fichier référencé.
+- **Audit complet des 32 tuiles du tileset** : 18 ont un équivalent réel direct, 2
+  un équivalent approximatif (Route, Pavés), et **12 n'ont aucun équivalent**
+  (herbe claire, prairie fleurie, route secondaire, terre battue, canal/eau,
+  boutique, maison, maison terracotta, colis, fontaine, étal de marché,
+  cultures). Utilisateur confirmé : "fais le matching au mieux et on avance" — la
+  liste complète des choix de repli est commentée directement dans
+  `mapLoader.js` (table `GID_TO_TEXTURE`), à revisiter si de vrais assets pour
+  ces 12 tuiles arrivent un jour.
+- **`mapLoader.js` implémenté** (n'est plus un stub) :
+  - Charge `public/maps/net-empire.tmj` comme simple source de données JSON —
+    **ignore volontairement** le tileset externe qu'il référence (jamais chargé,
+    inutile puisqu'on a nos propres tables de correspondance).
+  - `GID_TO_TEXTURE` : correspondance gid Tiled → clé de texture réelle, pour les
+    4 calques de tuiles (Ground/Roads/Buildings/Details), avec les replis décrits
+    ci-dessus. "Canal" (eau) n'a aucun asset réel : repli sur la texture trottoir
+    teintée avec la couleur sarcelle de la palette verrouillée (`#1F5E52`).
+  - `OBJECT_NAME_TO_TEXTURE` : correspondance par **nom** (pas par gid) pour le
+    calque d'objets "Bâtiments du jeu" — un des objets ("Poubelle de rue") a un
+    gid incohérent avec son propre nom dans le fichier exporté (gid pointant vers
+    "Camion original" au lieu de "Poubelle"), le nom tapé à la main dans Tiled
+    s'est avéré plus fiable que ce gid-là pour ce cas précis.
+  - Point sans image ("CENTRE DE DISTRIBUTION", calque Repères) : affiché comme
+    un simple marqueur (cercle + étiquette texte), pas un sprite.
+  - **Conversion de coordonnées d'objets isométriques** : découverte/appliquée la
+    convention du renderer isométrique de Tiled lui-même — x et y d'un objet sont
+    **tous les deux divisés par `tileHeight`** (pas `tileWidth`) pour obtenir une
+    position de grille fractionnaire, avant d'appliquer la même projection iso
+    que les calques de tuiles. Validé par calcul à la main sur les coordonnées
+    réelles du fichier (ex. QG Net Empire) avant implémentation, pas une
+    supposition non vérifiée.
+- **`MapScene.js` créée**, devient la scène active par défaut dans `main.js`
+  (`scene: [MapScene, CalibrationScene]`) ; `CalibrationScene` reste disponible
+  mais n'est plus utilisée par défaut.
+- **Validation** : `npm run build` réussi (11 modules, aucune erreur). Serveur
+  `npm run dev` relancé, les 19 assets utilisés par la carte + le fichier
+  `net-empire.tmj` + tous les modules JS (`main.js`, `mapLoader.js`,
+  `MapScene.js`, `CalibrationScene.js`, `CameraController.js`) vérifiés un par un
+  via requêtes HTTP : tous répondent 200.
+
+### Bloqué
+
+- **Aucune vérification visuelle possible dans cette session** (extension Claude
+  in Chrome non connectée, toujours) — tout le placement isométrique (tuiles de
+  sol/route, bâtiments, décor) et la conversion de coordonnées d'objets ont été
+  validés par la logique du code et des requêtes HTTP, **pas à l'œil**. C'est la
+  vérification la plus importante restante : le calcul de la projection
+  isométrique des objets (division par `tileHeight`) est une reconstruction de la
+  convention interne de Tiled, jamais testée visuellement — à confirmer en
+  priorité par l'utilisateur en lançant `npm run dev`.
+- Pas d'animation pour ouvrier/tricycle/camion (juste la première frame de leur
+  sprite-sheet affichée en statique) — noté comme limitation, pas un bug.
+- Les 12 tuiles sans équivalent réel utilisent des replis approximatifs (voir
+  ci-dessus) — à revoir si de vrais assets arrivent.
+
+### Prochaine étape
+
+Faire confirmer par l'utilisateur, en lançant `npm run dev`, que la carte s'affiche
+correctement : bâtiments bien positionnés et proportionnés, pas de décalage entre
+calques de tuiles et calque d'objets (ce qui validerait la conversion de coordonnées
+`objectToScreen`), pas de tuile visuellement aberrante. Une fois confirmé : commit +
+push (déploiement Vercel automatique). Si le positionnement des objets est décalé,
+revoir en priorité `objectToScreen()` dans `mapLoader.js`.

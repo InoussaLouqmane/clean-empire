@@ -35,20 +35,18 @@ plus rapide et honorer les contrats à temps fait grandir l'empire.
 - 🗺️ Rendu isométrique dimétrique (tuiles 64×32) plein écran, responsive
 - 🖱️ **Caméra** : glisser pour panner (souris et tactile), molette / pincement pour
   zoomer, **inertie** façon Clash of Clans au relâchement
-- 🎨 Grille de calibration en damier aux couleurs officielles du jeu, assez large pour
-  naviguer longtemps avant d'atteindre un bord
+- 🏙️ **Vraie carte** chargée depuis un export Tiled (`public/maps/net-empire.tmj`) :
+  sol, routes, bâtiments (QG, hôpital, marché, hôtel, école...), décor de rue
 
 ## 🔜 Pas encore là
 
-Bâtiments positionnés, interactions au clic, économie, vraie carte (en attente de
-l'export Tiled), sons. Voir [`STATUS.md`](./STATUS.md) pour le détail précis et la
-prochaine étape en cours.
+Interactions au clic, économie, animation des sprites (ouvrier/tricycle/camion en
+image statique pour l'instant), sons. Voir [`STATUS.md`](./STATUS.md) pour le détail
+précis et la prochaine étape en cours.
 
 ## 🕹️ Live demo
 
-<!-- Lien mis à jour après le premier déploiement Vercel -->
-👉 **[Jouer à la démo](https://clean-empire.vercel.app)** *(scène de calibration —
-pas encore le vrai jeu)*
+👉 **[Jouer à la démo](https://clean-empire.vercel.app)**
 
 ## 🧱 Stack technique
 
@@ -104,15 +102,19 @@ public/assets/           Assets statiques, servis tels quels par Vite
   props/                  Poubelles de rue, décor de rue
   ui/                     Icônes économie, jauge de réputation, boutons, alertes, écrans
   sound/                  Vide pour l'instant
+public/maps/
+  net-empire.tmj          Export Tiled JSON de la carte (isométrique, 64×32, 40×30)
 
 src/
   main.js                 Point d'entrée JS, crée l'instance Phaser.Game
   CameraController.js     Module caméra réutilisable : pan (glisser souris/tactile),
                            zoom (molette + pincement), inertie au relâchement
+  mapLoader.js             Charge net-empire.tmj et fait correspondre chaque tuile/
+                           objet Tiled à un vrai asset (voir CLAUDE.md pour le détail)
   scenes/
-    CalibrationScene.js   Scène actuelle : grille isométrique aux couleurs du jeu,
-                           sert à tester la caméra — sera remplacée par la vraie carte
-  mapLoader.js             Stub en attente de l'export Tiled de la carte réelle
+    MapScene.js           Scène active par défaut : construit la carte via mapLoader.js
+    CalibrationScene.js   Ancienne grille de calibration, gardée mais inutilisée par
+                           défaut (utile pour retester la caméra seule)
 ```
 
 ## 📚 Documentation du projet

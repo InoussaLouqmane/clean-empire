@@ -1,5 +1,6 @@
 import Phaser from 'phaser';
 import { CalibrationScene } from './scenes/CalibrationScene.js';
+import { MapScene } from './scenes/MapScene.js';
 
 const config = {
   type: Phaser.AUTO,
@@ -13,7 +14,10 @@ const config = {
     width: window.innerWidth,
     height: window.innerHeight,
   },
-  scene: [CalibrationScene],
+  // MapScene (la vraie carte) est active en premier. CalibrationScene reste
+  // enregistrée mais inutilisée par défaut — utile pour retester la caméra seule
+  // si besoin, sans dépendre du chargement de la carte.
+  scene: [MapScene, CalibrationScene],
 };
 
 const game = new Phaser.Game(config);
