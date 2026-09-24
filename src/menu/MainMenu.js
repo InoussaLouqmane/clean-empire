@@ -1,4 +1,5 @@
 import { icon } from './icons.js';
+import { createAnimatedBackground } from './animatedBackground.js';
 
 // Main Menu de CLEAN CEO — overlay DOM/CSS (pas Phaser), pour s'afficher
 // immédiatement sans attendre le moteur de jeu ni les assets de la carte
@@ -27,11 +28,15 @@ export class MainMenu {
    * @param {HTMLElement} options.root  conteneur où monter le menu
    * @param {import('./SoundManager.js').SoundManager} options.sound
    * @param {() => void} options.onNewGame
+   * @param {() => void} options.onResume
+   * @param {boolean} options.canResume  une partie sauvegardée existe
    */
-  constructor({ root, sound, onNewGame }) {
+  constructor({ root, sound, onNewGame, onResume, canResume = false }) {
     this.root = root;
     this.sound = sound;
     this.onNewGame = onNewGame;
+    this.onResume = onResume;
+    this.canResume = canResume;
     this.openModalEl = null;
     this._render();
     this._bind();
@@ -66,8 +71,8 @@ export class MainMenu {
         <div class="menu-buttons" role="menu">
           ${this._menuButton('new', 'play', 'Nouvelle partie', { primary: true })}
           ${this._menuButton('resume', 'folder', 'Reprendre partie', {
-            disabled: true,
-            tooltip: 'Aucune partie sauvegardée',
+            disabled: !this.canResume,
+            tooltip: this.canResume ? '' : 'Aucune partie sauvegardée',
           })}
           ${this._menuButton('howto', 'book', 'Comment jouer')}
           ${this._menuButton('options', 'gear', 'Options')}
@@ -77,6 +82,7 @@ export class MainMenu {
     this.root.appendChild(this.el);
     this.buttons = [...this.el.querySelectorAll('.menu-btn')];
     this.soundBtn = this.el.querySelector('[data-action="sound"]');
+    this.animatedBg = createAnimatedBackground(this.el.querySelector('.menu-bg'));
   }
 
   _menuButton(action, iconName, label, { primary = false, disabled = false, tooltip = '' } = {}) {
@@ -139,6 +145,9 @@ export class MainMenu {
     switch (action) {
       case 'new':
         this.onNewGame();
+        break;
+      case 'resume':
+        this.onResume();
         break;
       case 'howto':
         this._openHowTo(btn);
@@ -276,6 +285,7 @@ export class MainMenu {
    * de chargement. Renvoie un objet pour piloter la barre de progression. */
   showLoading() {
     this._closeModal();
+    this.animatedBg.pause(); // plus de décodage vidéo pendant le chargement du jeu
     this.el.classList.add('is-leaving');
 
     const overlay = document.createElement('div');

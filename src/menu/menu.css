@@ -32,6 +32,11 @@
   height: 100%;
   object-fit: cover;
   pointer-events: none;
+  opacity: 0;
+  transition: opacity 600ms var(--ease-out);
+}
+.menu-bg__video.is-ready {
+  opacity: 1;
 }
 .menu-bg::after {
   /* voile uni très léger (pas de dégradé) pour détacher l'UI de la ville */

@@ -200,3 +200,19 @@ pour le détail exact et la prochaine étape.
   `sprite.getData('anchorDy')` donne l'écart avec le centre de la case.
 - `src/mapDecor.js` : décor hors zone (sol infini, arbres, nuages, liseré).
   Purement visuel : jamais sauvegardé, jamais éditable.
+
+## Gameplay — niveau 1 (depuis le 2026-09-24)
+
+- Code du jeu dans `src/game/` : `economy.js` (**tous** les chiffres — ne
+  jamais coder un montant en dur ailleurs), `GameState.js` (seule source de
+  vérité ; toute modification passe par ses méthodes, qui émettent sur le bus
+  et sauvegardent), `events.js` (bus), `save.js` (sans Phaser),
+  `GameController.js` (branché par MapScene hors `?edit`).
+- Tutoriel : répliques dans `level1/script.js` (données, mot pour mot du
+  script fourni), enchaînement dans `level1/Level1Tutorial.js`. Les attentes
+  portent sur des **conditions d'état**, pas des événements.
+- UI en jeu = DOM (`src/game/ui/`, styles `game-ui.css`, tokens partagés).
+- `?edit` = éditeur de carte (équipe) ; sans paramètre = jeu. `?debug` expose
+  `window.__CLEAN_CEO__` pour les tests automatisés.
+- Sauvegarde : localStorage `clean-ceo-save-v1` (changer la clé si le format
+  change de façon incompatible).

@@ -1316,3 +1316,74 @@ et `this.animatedBg.pause()` au début de `showLoading()`. Une nouvelle vidéo
     Phaser) ; bouton renommé « ↺ Revenir à la carte par défaut ».
 - Pour changer la carte par défaut à l'avenir : « Exporter la carte » dans
   l'éditeur, puis remplacer `public/maps/default-map.json`.
+
+---
+
+## 2026-09-24 — Niveau 1 jouable de bout en bout (roadmap étapes 0 à 6)
+
+### Contexte
+
+Roadmap validée avec l'utilisateur (documents `Downloads/niveau1/` : script
+du tutoriel v2 + guide technique). Décisions : départ à **500 FCFA** (pas 0,
+sinon le recrutement est impossible avec 3 restos), recollecte après **30 s**,
+tricycle 5 000 FCFA visible mais trop cher, camion verrouillé (niveau 2),
+Karim : une seule image pour toutes les expressions, sons synthétisés en
+attendant les vrais, « Reprendre partie » actif, éditeur caché derrière
+`?edit`, écran « Niveau 1 terminé — à suivre » à la place du niveau 2.
+
+### Fait
+
+- **Étape 0** : nouvelle vidéo de fond (`new_lastest_background_video.mp4`,
+  boucle propre) → `main_menu_background.mp4` (1,6 Mo), rebranchée sans fondu
+  de raccord. Éditeur uniquement avec `?edit` dans l'URL.
+- **Fondations** (`src/game/`) : `economy.js` (tous les chiffres + formules :
+  coût du n-ième ouvrier 2 000 × 1,5^(n−2), durée selon engins, seuils d'XP),
+  `GameState.js` (seule source de vérité, horloge murale), `events.js` (bus
+  avec écouteur `*`), `save.js` (localStorage `clean-ceo-save-v1`, sans
+  Phaser → utilisable par le menu).
+- **Boucle de collecte** : `ContractBuildings.js` — 3 restaurants de la carte
+  par défaut (15,13 / 15,7 / 21,18, repli automatique sur les restaurants
+  trouvés si la carte change), zones cliquables en coordonnées locales à la
+  texture (règle CLAUDE.md), clic distingué du glissé caméra, marqueur au
+  sol pulsant, loader circulaire avec secondes restantes, gains flottants.
+  `ui/BuildingMenu.js` : menu contextuel ancré au bâtiment (Collecter +
+  états : en cours / recollecte dans X s / aucun ouvrier libre).
+- **HUD** (`ui/Hud.js`) : icône boutique fournie (extraite du SVG, qui
+  contenait en fait un PNG 1024 px → 160 px), argent, XP + barre, ouvriers
+  « libres/total », impulsion à chaque changement.
+- **Boutique** (`ui/ShopPanel.js`) : recrutement, tricycle, camion verrouillé,
+  raison affichée si indisponible, sprites des véhicules en icône.
+- **Dialogue** : `ui/DialogueBox.js` (portrait de Karim fourni, machine à
+  écrire, NEXT toujours visible, clic/Entrée/Espace, Karim discret en bas à
+  droite pendant que le joueur agit) + `DialogueManager.js` (`say()` /
+  `waitUntil(condition d'état)` — conditions d'état plutôt qu'événements,
+  pour ne rien rater si le joueur agit avant de fermer la bulle).
+  `ui/NameInput.js` (séquence 0), `ui/LevelComplete.js`.
+- **Tutoriel** : `level1/script.js` (répliques mot pour mot du script, en
+  données) + `level1/Level1Tutorial.js` (enchaînement, 7 étapes =
+  points de reprise), `GameController.js` (relie tout à MapScene, caméra
+  sur la maison de Karim pendant les retrouvailles puis vue de la ville).
+- **Menu** : « Reprendre partie » actif s'il existe une sauvegarde ;
+  « Nouvelle partie » repart de zéro.
+- **Accès de test** `?debug` (expose l'état et la position écran des
+  bâtiments, pour les tests automatisés uniquement).
+- **Vérifié en headless (puppeteer, clics réels)** : niveau complet joué en
+  ~75 s — 500 → 1 000 → 1 500 FCFA, branche « pas encore assez », 3ᵉ
+  collecte (2 000), recrutement (0 FCFA, 2/2), clôture, écran de fin ;
+  reprise après rechargement (prénom, argent, XP, étape restaurés) ;
+  `?edit` = éditeur seul, sans `?edit` = jeu seul. Aucune erreur console.
+- Bug corrigé pendant les tests : un `display: grid` écrasait l'attribut
+  `hidden` (bulle et Karim affichés ensemble) → règle `.game-ui [hidden]`.
+
+### Bloqué / à valider par l'utilisateur
+
+- **Sons** : tous synthétisés (placeholders), jamais écoutés par l'agent.
+- **Ressenti** : rythme de la machine à écrire, durée des pulsations, taille
+  du menu bâtiment, lisibilité du HUD.
+- Les 12 expressions de Karim utilisent la même image (`data-expression`
+  déjà renseigné sur la boîte pour brancher les portraits plus tard).
+
+### Prochaine étape
+
+Session de test par l'utilisateur sur le site en ligne, retours, puis
+polish (vrais sons, portraits) et conception du niveau 2 « À son compte ».

@@ -8,6 +8,12 @@ import { MapEditor } from '../editor/MapEditor.js';
 import { EditorPanel } from '../editor/EditorPanel.js';
 import { SelectionFrame } from '../editor/SelectionFrame.js';
 import { AddAssetModal } from '../editor/AddAssetModal.js';
+import { GameController } from '../game/GameController.js';
+
+// Mode édition réservé à l'équipe : https://…/?edit (décision du 2026-09-24,
+// les joueurs ne voient plus le bouton « Mode édition »). Sans ?edit, c'est le
+// jeu (niveau 1).
+const EDIT_MODE = new URLSearchParams(window.location.search).has('edit');
 
 // Part maximale de la carte visible d'un coup (mesurée sur la capture de
 // référence default_zoom.png : ~86 % de la largeur, ~96 % de la hauteur).
@@ -85,6 +91,16 @@ export class MapScene extends Phaser.Scene {
     this.scale.on('resize', fitMinZoom);
     this.events.once('shutdown', () => this.scale.off('resize', fitMinZoom));
 
+    if (!EDIT_MODE) {
+      this.game_ = new GameController(this, {
+        spriteGrid,
+        grid,
+        mode: this.registry.get('gameMode') ?? 'new',
+      });
+      this.events.once('shutdown', () => this.game_?.destroy());
+      return;
+    }
+
     this.mapEditor = new MapEditor(this, {
       grid,
       spriteGrid,
@@ -135,7 +151,8 @@ export class MapScene extends Phaser.Scene {
   update(time) {
     this.cameraController.update();
     this.decor.update(time);
-    this._updateSelectionFrame();
+    this.game_?.update();
+    if (this.mapEditor) this._updateSelectionFrame();
   }
 
   /** Repositionne le cadre contextuel (DOM) chaque frame à partir de la

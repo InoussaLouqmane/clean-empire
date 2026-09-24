@@ -46,6 +46,13 @@ plus rapide et honorer les contrats à temps fait grandir l'empire.
   choisir un calque (Sol/Routes/Bâtiments/Détails), peindre/effacer des tuiles
   à la souris depuis une palette de vrais assets, exporter en JSON
 
+## 🎯 Niveau 1 « L'affaire du cousin »
+
+Jouable de bout en bout : saisie du prénom, tutoriel guidé par Karim,
+collectes chez 3 restaurants (loader, gains FCFA/XP), boutique (recrutement,
+engins), écran de fin. Sauvegarde automatique + « Reprendre partie ».
+L'éditeur de carte est réservé à l'équipe : ajouter `?edit` à l'adresse.
+
 ## 🔜 Pas encore là
 
 Interactions de jeu (clic sur un bâtiment pour une action), économie, animation

@@ -19,11 +19,12 @@ export const GAME_ASSET_URLS = [
 ];
 
 /**
- * Crée le Phaser.Game dans #game-container. `onReady` est appelé une fois la
+ * Crée le Phaser.Game dans #game-container. `mode` : 'new' (nouvelle partie,
+ * efface la sauvegarde) ou 'resume'. `onReady` est appelé une fois la
  * carte réellement affichée (fin du create() de MapScene), pour que le menu
  * puisse retirer son écran de chargement au bon moment.
  */
-export function startGame({ onReady } = {}) {
+export function startGame({ onReady, mode = 'new' } = {}) {
   const config = {
     type: Phaser.AUTO,
     parent: 'game-container',
@@ -43,6 +44,7 @@ export function startGame({ onReady } = {}) {
   };
 
   const game = new Phaser.Game(config);
+  game.registry.set('gameMode', mode); // lu par MapScene (GameController)
 
   window.addEventListener('resize', () => {
     game.scale.resize(window.innerWidth, window.innerHeight);

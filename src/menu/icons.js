@@ -202,6 +202,48 @@ const GRIDS = {
     '................',
     '................',
   ],
+  worker: [
+    '................',
+    '.....gggggg.....',
+    '....gggggggg....',
+    '...gggggggggg...',
+    '..gggggggggggg..',
+    '.....cccccc.....',
+    '.....cdccdc.....',
+    '.....cccccc.....',
+    '......cccc......',
+    '....GGGGGGGG....',
+    '...GGGggGGGGG...',
+    '..GGGGggGGGGGG..',
+    '..GGGGGGGGGGGG..',
+    '..GG.GGGGGG.GG..',
+    '.....GGGGGG.....',
+    '................',
+  ],
+  lock: [
+    '................',
+    '.....cccccc.....',
+    '....cc....cc....',
+    '....c......c....',
+    '....c......c....',
+    '....c......c....',
+    '...gggggggggg...',
+    '...gggggggggg...',
+    '...ggggddgggg...',
+    '...ggggddgggg...',
+    '...gggggdgggg...',
+    '...gggggggggg...',
+    '...gggggggggg...',
+    '................',
+    '................',
+    '................',
+  ],
+  clock: disc((x, y, d) => {
+    if (d > 6.1) return 'c';
+    if (x === 7 && y >= 3 && y <= 7) return 'd';
+    if (y === 7 && x >= 7 && x <= 10) return 'd';
+    return '.';
+  }),
   coin: disc((x, y, d) => {
     if (d > 6.1) return 'b';
     if ((x === 5 && y === 4) || (x === 4 && y === 5) || (x === 4 && y === 6)) return 'c';
