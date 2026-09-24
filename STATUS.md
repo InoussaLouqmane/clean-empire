@@ -1179,3 +1179,27 @@ chargement d'images. Puis première boucle de gameplay (collecte).
   pré-téléchargement du menu (`GAME_ASSET_URLS`). Les nuages générés en code
   sont supprimés ; `mapDecor.js` place les vrais nuages (même logique :
   hors de la zone jouable, ondulation lente), filtre NEAREST.
+
+---
+
+## 2026-09-24 — Mer de nuages autour de la ville
+
+### Fait
+
+Demande utilisateur (capture annotée `Downloads/last_cap.png`) : remplir
+COMPLÈTEMENT l'espace au-delà de la forêt avec des nuages, pour donner
+l'impression d'une ville-île au-dessus des nuages.
+
+- `mapDecor.js`, `createCloudSea()` :
+  - fond plein couleur nuage au-delà de la lisière (rectangle du monde moins
+    le losange de l'île, en 4 polygones) → aucun trou possible ;
+  - 110 nuages serrés le long de la lisière (petite ondulation, bord
+    irrégulier qui mord sur la forêt) + renfort aux 4 pointes du losange ;
+  - 460 nuages répartis sur toute la mer pour le relief (ondulation lente).
+- Nuages éclaircis de 35 % vers le crème au chargement (canvas, fichiers
+  intacts) ; fond de la mer = couleur moyenne des nuages éclaircie de 45 %
+  (réglages `CLOUD_LIGHTEN`, `SEA_BASE_LIGHTEN`).
+- Bande d'arbres réduite à 10 cases (au-delà, cachée par la mer).
+- Bug évité : la profondeur des nuages vaut `CLOUDS + y` (y négatif en haut)
+  → le fond est placé à `CLOUDS - 50000` pour rester sous tous les nuages.
+- ~60 images/s mesurées en headless avec ~600 nuages ; aucune erreur.

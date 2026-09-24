@@ -18,13 +18,14 @@ import {
 // Trois couches, de la plus basse à la plus haute :
 // 1. un sol d'herbe répété à l'infini, assombri (= "hors zone") ;
 // 2. une bande d'arbres autour de la zone, de plus en plus dense en s'éloignant ;
-// 3. des nuages dessinés sur l'horizon, qui ondulent lentement.
+// 3. au-delà de la forêt, une mer de nuages qui remplit TOUT le reste
+//    (demande utilisateur du 2026-09-24 : la ville est une île au-dessus des
+//    nuages, on devine qu'il existe quelque chose au-delà).
 // + un liseré discret qui marque la limite de la zone jouable.
 
 const OUTSIDE_TINT = 0x9ea58c; // assombrit/désature l'herbe et les arbres hors zone
 const OUTSIDE_EXTENT = 7000; // px monde couverts autour de la carte (couvre le zoom ×0.3)
-const TREE_RING = 12; // largeur (en cases) de la bande d'arbres
-const CLOUD_COUNT = 44;
+const TREE_RING = 10; // largeur (en cases) de la bande d'arbres (au-delà : mer de nuages)
 const SEED = 20260924;
 
 /** Petit générateur pseudo-aléatoire à graine (mulberry32) : décor stable. */
@@ -46,7 +47,7 @@ export function createMapDecor(scene, grid) {
   createOutsideGround(scene, bounds);
   createZoneOutline(scene, grid);
   createTreeRing(scene, grid);
-  const clouds = createClouds(scene, bounds);
+  const clouds = createCloudSea(scene, grid, bounds);
   return { update: (time) => clouds.update(time) };
 }
 
@@ -143,52 +144,165 @@ function createTreeRing(scene, grid) {
   }
 }
 
-// --------------------------------------------------------------- 3. nuages
+// ---------------------------------------------------------- 3. mer de nuages
 
 // Nuages dessinés (voir DECOR_ASSET_PATHS dans mapLoader.js).
 const CLOUD_KEYS = ['decor_cloud_1', 'decor_cloud_2', 'decor_cloud_3'];
+// Éclaircissement vers le crème #F1E9D2 (0 = nuages d'origine, 1 = crème
+// uni) : en grande quantité, les nuages beiges d'origine faisaient "sable".
+const CLOUD_LIGHTEN = 0.35;
+// Lisière de la mer de nuages, en cases autour de la zone jouable : la forêt
+// (TREE_RING) s'y enfonce et disparaît dans la brume.
+const SEA_EDGE = 8;
+const EDGE_CLOUDS = 110; // nuages serrés le long de la lisière (bord moelleux)
+const FIELD_CLOUDS = 460; // nuages répartis sur toute la mer (relief)
+// Le fond de la mer est éclairci vers le crème par rapport à la couleur
+// moyenne des nuages : à la couleur moyenne pure, il faisait "sable".
+const SEA_BASE_LIGHTEN = 0.45;
+const CAMERA_REACH = 1700; // px au-delà de la carte que la caméra peut montrer
 
-function createClouds(scene, bounds) {
+/** Version éclaircie d'une texture de nuage (canvas, fichier d'origine intact).
+ * Renvoie aussi sa couleur moyenne, utilisée pour le fond de la mer. */
+function makeLightCloud(scene, key) {
+  const lightKey = `${key}_light`;
+  const src = scene.textures.get(key).getSourceImage();
+  const tex = scene.textures.exists(lightKey)
+    ? scene.textures.get(lightKey)
+    : scene.textures.createCanvas(lightKey, src.width, src.height);
+  const ctx = tex.getContext();
+  ctx.clearRect(0, 0, src.width, src.height);
+  ctx.drawImage(src, 0, 0);
+  ctx.globalCompositeOperation = 'source-atop'; // ne teinte que les pixels opaques
+  ctx.fillStyle = `rgba(241, 233, 210, ${CLOUD_LIGHTEN})`;
+  ctx.fillRect(0, 0, src.width, src.height);
+  ctx.globalCompositeOperation = 'source-over';
+  tex.refresh();
+  tex.setFilter(Phaser.Textures.FilterMode.NEAREST); // pixels nets
+
+  const { data } = ctx.getImageData(0, 0, src.width, src.height);
+  let r = 0;
+  let g = 0;
+  let b = 0;
+  let n = 0;
+  for (let i = 0; i < data.length; i += 16) {
+    if (data[i + 3] < 200) continue;
+    r += data[i];
+    g += data[i + 1];
+    b += data[i + 2];
+    n++;
+  }
+  return { key: lightKey, avg: n ? [r / n, g / n, b / n] : [233, 219, 189] };
+}
+
+/** Sommets (haut, droite, bas, gauche) du losange de la zone jouable
+ * élargie de `k` cases. */
+function expandedDiamond(grid, k) {
+  const hw = TILE_WIDTH / 2;
+  const hh = TILE_HEIGHT / 2;
+  const { width: W, height: H } = grid;
+  const t = isoToScreen(-k, -k);
+  const r = isoToScreen(W - 1 + k, -k);
+  const b = isoToScreen(W - 1 + k, H - 1 + k);
+  const l = isoToScreen(-k, H - 1 + k);
+  return {
+    top: { x: t.x, y: t.y - hh },
+    right: { x: r.x + hw, y: r.y },
+    bottom: { x: b.x, y: b.y + hh },
+    left: { x: l.x - hw, y: l.y },
+  };
+}
+
+/** (x, y) est-il dans le losange de la zone jouable élargie de `k` cases ? */
+function insideDiamond(grid, k, x, y) {
+  const col = (x / (TILE_WIDTH / 2) + y / (TILE_HEIGHT / 2)) / 2;
+  const row = (y / (TILE_HEIGHT / 2) - x / (TILE_WIDTH / 2)) / 2;
+  return col > -k - 0.5 && col < grid.width - 0.5 + k && row > -k - 0.5 && row < grid.height - 0.5 + k;
+}
+
+function createCloudSea(scene, grid, bounds) {
   const rng = makeRng(SEED + 1);
-  // pixel art : agrandissement sans lissage, pour garder les pixels nets
-  for (const key of CLOUD_KEYS) scene.textures.get(key).setFilter(Phaser.Textures.FilterMode.NEAREST);
+  const lights = CLOUD_KEYS.map((key) => makeLightCloud(scene, key));
+  const avg = lights.reduce((acc, l) => acc.map((v, i) => v + l.avg[i] / lights.length), [0, 0, 0]);
+  const cream = [241, 233, 210];
+  const base = avg.map((v, i) => Math.round(v + (cream[i] - v) * SEA_BASE_LIGHTEN));
+  const seaColor = (base[0] << 16) | (base[1] << 8) | base[2];
+  const pickKey = () => lights[Math.floor(rng() * lights.length)].key;
 
-  // Les nuages restent HORS du rectangle de la carte (+ marge) : ils habillent
-  // l'horizon sans jamais masquer la zone jouable.
-  const inner = {
-    minX: bounds.minX - 180,
-    maxX: bounds.maxX + 180,
-    minY: bounds.minY - 140,
-    maxY: bounds.maxY + 140,
-  };
-  const outer = {
-    minX: bounds.minX - 2400,
-    maxX: bounds.maxX + 2400,
-    minY: bounds.minY - 1500,
-    maxY: bounds.maxY + 1500,
-  };
+  // 1) Fond plein couleur nuage sur tout ce qui est au-delà de la lisière :
+  //    garantit qu'il ne reste AUCUN trou, même entre deux nuages. C'est le
+  //    rectangle du monde moins le losange de l'île, découpé en 4 polygones.
+  const d = expandedDiamond(grid, SEA_EDGE + 1);
+  const TL = { x: bounds.minX - OUTSIDE_EXTENT, y: bounds.minY - OUTSIDE_EXTENT };
+  const TR = { x: bounds.maxX + OUTSIDE_EXTENT, y: bounds.minY - OUTSIDE_EXTENT };
+  const BR = { x: bounds.maxX + OUTSIDE_EXTENT, y: bounds.maxY + OUTSIDE_EXTENT };
+  const BL = { x: bounds.minX - OUTSIDE_EXTENT, y: bounds.maxY + OUTSIDE_EXTENT };
+  // Profondeur bien en dessous des nuages : leur profondeur vaut CLOUDS + y,
+  // et y est négatif en haut de la carte (sinon ils passaient sous le fond).
+  const sea = scene.add.graphics().setDepth(DEPTH.CLOUDS - 50000).fillStyle(seaColor, 1);
+  for (const poly of [
+    [TL, TR, d.right, d.top, d.left],
+    [BL, d.left, d.bottom, d.right, BR],
+    [TL, d.left, BL],
+    [TR, BR, d.right],
+  ]) {
+    sea.fillPoints(poly.map((p) => new Phaser.Math.Vector2(p.x, p.y)), true);
+  }
 
   const clouds = [];
-  let attempts = 0;
-  while (clouds.length < CLOUD_COUNT && attempts++ < 2000) {
-    const x = outer.minX + rng() * (outer.maxX - outer.minX);
-    const y = outer.minY + rng() * (outer.maxY - outer.minY);
-    if (x > inner.minX && x < inner.maxX && y > inner.minY && y < inner.maxY) continue;
-
+  const addCloud = (x, y, scale, amp) => {
     const sprite = scene.add
-      .image(x, y, CLOUD_KEYS[Math.floor(rng() * CLOUD_KEYS.length)])
-      .setScale(0.6 + rng() * 0.7)
-      .setAlpha(0.82 + rng() * 0.15)
+      .image(x, y, pickKey())
+      .setScale(scale)
       .setFlipX(rng() < 0.5)
       .setDepth(DEPTH.CLOUDS + y); // les nuages du bas passent devant ceux du haut
-    clouds.push({ sprite, baseX: x, amp: 30 + rng() * 50, speed: 0.00012 + rng() * 0.00018, phase: rng() * 6.28 });
+    clouds.push({ sprite, baseX: x, amp, speed: 0.00012 + rng() * 0.00018, phase: rng() * 6.28 });
+  };
+
+  // 2) Lisière : nuages serrés le long du bord du losange, qui mordent un peu
+  //    sur la forêt — la ligne droite du fond n'est jamais visible. Petite
+  //    amplitude d'ondulation pour que le bord reste toujours couvert.
+  const edge = expandedDiamond(grid, SEA_EDGE + 0.5);
+  const sides = [
+    [edge.top, edge.right],
+    [edge.right, edge.bottom],
+    [edge.bottom, edge.left],
+    [edge.left, edge.top],
+  ];
+  const lengths = sides.map(([a, b]) => Math.hypot(b.x - a.x, b.y - a.y));
+  const total = lengths.reduce((sum, v) => sum + v, 0);
+  for (let i = 0; i < EDGE_CLOUDS; i++) {
+    let dist = ((i + rng() * 0.6) / EDGE_CLOUDS) * total;
+    let s = 0;
+    while (s < sides.length - 1 && dist > lengths[s]) dist -= lengths[s++];
+    const [a, b] = sides[s];
+    const t = Math.min(1, dist / lengths[s]);
+    const jitter = (rng() - 0.3) * 50; // un peu vers l'extérieur en moyenne
+    addCloud(a.x + (b.x - a.x) * t, a.y + (b.y - a.y) * t + jitter, 0.55 + rng() * 0.45, 6 + rng() * 10);
+  }
+
+  // Pointes du losange : quelques nuages de plus, là où la forêt dépasse.
+  for (const v of [edge.top, edge.right, edge.bottom, edge.left]) {
+    for (let j = 0; j < 4; j++) {
+      addCloud(v.x + (rng() - 0.5) * 140, v.y + (rng() - 0.5) * 60, 0.6 + rng() * 0.4, 6 + rng() * 8);
+    }
+  }
+
+  // 3) Champ : nuages répartis sur toute la mer visible, pour le relief.
+  let attempts = 0;
+  let placed = 0;
+  while (placed < FIELD_CLOUDS && attempts++ < 5000) {
+    const x = bounds.minX - CAMERA_REACH + rng() * (bounds.maxX - bounds.minX + CAMERA_REACH * 2);
+    const y = bounds.minY - CAMERA_REACH + rng() * (bounds.maxY - bounds.minY + CAMERA_REACH * 2);
+    if (insideDiamond(grid, SEA_EDGE + 2, x, y)) continue;
+    addCloud(x, y, 0.6 + rng() * 0.8, 20 + rng() * 40);
+    placed++;
   }
 
   const reduceMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
 
   return {
-    // Ondulation lente d'avant en arrière (pas de dérive continue : un nuage
-    // ne traverse jamais la zone jouable).
+    // Ondulation lente d'avant en arrière (pas de dérive : un nuage ne
+    // traverse jamais la zone jouable).
     update(time) {
       if (reduceMotion) return;
       for (const c of clouds) {
