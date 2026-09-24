@@ -6,8 +6,10 @@ const KARIM_FALLBACK = `${CHAR_DIR}/karim.png`;
 
 // Portraits par expression : `karim_<expression>.png` / `joueur_<expression>.png`
 // dans public/assets/characters/ (noms sans accents, voir la liste donnée à
-// l'utilisateur le 2026-09-24). Tant qu'un fichier n'existe pas, repli
-// automatique : image générique de Karim, ou vignette avec l'initiale du joueur.
+// l'utilisateur le 2026-09-24). AJOUTER ICI le nom de chaque fichier livré
+// (ex. 'karim_accueil') : seuls ceux listés sont chargés, les autres utilisent
+// le repli (image générique de Karim, ou initiale du joueur) — pas de 404.
+const AVAILABLE_PORTRAITS = new Set([]);
 const missing = new Set();
 
 function slug(expression) {
@@ -98,7 +100,10 @@ export class DialogueBox {
     this.el.classList.toggle('is-karim', isKarim);
     this.el.classList.toggle('is-player', !isKarim);
     this.el.dataset.expression = expression ?? '';
-    if (isKarim) this._setPortrait(this.karimImg, `${CHAR_DIR}/karim_${slug(expression)}.png`, KARIM_FALLBACK);
+    if (isKarim) {
+      const key = `karim_${slug(expression)}`;
+      this._setPortrait(this.karimImg, AVAILABLE_PORTRAITS.has(key) ? `${CHAR_DIR}/${key}.png` : KARIM_FALLBACK, KARIM_FALLBACK);
+    }
     else this._setPlayerPortrait(expression, speaker);
     this.speakerEl.textContent = speaker;
     this._type(text);
@@ -120,7 +125,9 @@ export class DialogueBox {
   }
 
   _setPlayerPortrait(expression, name) {
-    const url = `${CHAR_DIR}/joueur_${slug(expression)}.png`;
+    const key = `joueur_${slug(expression)}`;
+    const url = `${CHAR_DIR}/${key}.png`;
+    if (!AVAILABLE_PORTRAITS.has(key)) missing.add(url);
     this.playerInitial.textContent = (name || '?').trim().charAt(0).toUpperCase();
     const showInitial = () => {
       this.playerImg.hidden = true;
