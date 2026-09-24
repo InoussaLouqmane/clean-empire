@@ -73,8 +73,6 @@ export class MainMenu {
           ${this._menuButton('options', 'gear', 'Options')}
         </div>
       </main>
-
-      <footer class="menu-footer">${icon('leaf')}<span>CLEAN CEO</span></footer>
     `;
     this.root.appendChild(this.el);
     this.buttons = [...this.el.querySelectorAll('.menu-btn')];

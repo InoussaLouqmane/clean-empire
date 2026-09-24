@@ -345,39 +345,6 @@
   transform: translateY(0);
 }
 
-/* -------------------------------------------------------------- footer */
-
-.menu-footer {
-  position: absolute;
-  left: 50%;
-  bottom: max(14px, env(safe-area-inset-bottom));
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 0;
-  padding: 2px 12px 5px;
-  background: rgba(27, 23, 18, 0.72);
-  border-radius: var(--radius-medium);
-  transform: translateX(-50%);
-  font-size: clamp(13px, 1.6vh, 17px);
-  font-weight: 700;
-  letter-spacing: 0.24em;
-  color: var(--color-reward);
-  /* contour pixel net (4 ombres dures) pour rester lisible sur la ville */
-  text-shadow:
-    2px 0 0 var(--palette-dark),
-    -2px 0 0 var(--palette-dark),
-    0 2px 0 var(--palette-dark),
-    0 -2px 0 var(--palette-dark),
-    0 3px 0 var(--palette-dark);
-  pointer-events: none;
-}
-.menu-footer .px-icon {
-  width: 22px;
-  height: 22px;
-  filter: drop-shadow(0 2px 0 var(--palette-dark));
-}
-
 /* ------------------------------------------------------------- modales */
 
 .modal-backdrop {
@@ -529,17 +496,13 @@
 /* ----------------------------------------------------------- chargement */
 
 .menu.is-leaving .menu-center,
-.menu.is-leaving .menu-top,
-.menu.is-leaving .menu-footer {
+.menu.is-leaving .menu-top {
   opacity: 0;
   transform: translateY(6px);
   pointer-events: none;
   transition:
     opacity var(--animation-normal) var(--ease-out),
     transform var(--animation-normal) var(--ease-out);
-}
-.menu.is-leaving .menu-footer {
-  transform: translate(-50%, 6px);
 }
 
 .loading {

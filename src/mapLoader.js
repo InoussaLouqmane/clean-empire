@@ -17,21 +17,25 @@ export const TILE_HEIGHT = 32;
 
 export const LAYER_NAMES = ['ground', 'roads', 'buildings', 'details'];
 
+// Bâtiments : copies réduites à 288 px (public/assets/buildings-web/, ~640 Ko au
+// total) au lieu des originaux 1536×1024 (public/assets/buildings/, ~13 Mo),
+// affichés de toute façon en 72 px — voir STATUS.md du 2026-09-24. Les
+// originaux sont gardés tels quels pour une future version HD.
 export const ASSET_PATHS = {
   tile_grass: 'assets/tiles/Isometric Bare Grass Tile — 64×32.png',
   tile_sidewalk: 'assets/tiles/Isometric Sidewalk Tile — 64×32.png',
   tile_road_straight: 'assets/tiles/Route droite isométrique — 64×32.png',
   tile_road_corner: 'assets/tiles/Route en angle isométrique — 64×32.png',
   tile_road_intersection: 'assets/tiles/Intersection isométrique — 64×32.png',
-  building_hopital: 'assets/buildings/hopital.png',
-  building_marche: 'assets/buildings/marché.png',
-  building_depot: 'assets/buildings/Déchetterie.png',
-  building_hotel: 'assets/buildings/hotel.png',
-  building_cousin: 'assets/buildings/batiment cousin.png',
-  building_qg: 'assets/buildings/base-QG.png',
-  building_ecole: 'assets/buildings/ecole.png',
-  building_cinema: 'assets/buildings/cinema.png',
-  building_restaurant: 'assets/buildings/restaurant.png',
+  building_hopital: 'assets/buildings-web/hopital.png',
+  building_marche: 'assets/buildings-web/marché.png',
+  building_depot: 'assets/buildings-web/Déchetterie.png',
+  building_hotel: 'assets/buildings-web/hotel.png',
+  building_cousin: 'assets/buildings-web/batiment cousin.png',
+  building_qg: 'assets/buildings-web/base-QG.png',
+  building_ecole: 'assets/buildings-web/ecole.png',
+  building_cinema: 'assets/buildings-web/cinema.png',
+  building_restaurant: 'assets/buildings-web/restaurant.png',
   prop_tree: 'assets/props/Decorative Tree — 32×32.png',
   prop_lamp: 'assets/props/Street Lamp — 32×32.png',
   prop_bench: 'assets/props/Bench — 32×32.png',

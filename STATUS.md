@@ -1038,3 +1038,79 @@ exporter/réimporter une carte avec un asset personnalisé le restaure bien
 Faire tester par l'utilisateur l'ensemble des nouveautés (Gomme repositionnée,
 ajout d'asset personnalisé, portabilité export/import). Une fois validé,
 redemander le feu vert pour un nouveau commit + push.
+
+---
+
+## 2026-09-24 — Main Menu CLEAN CEO (POC) + renommage + chargement différé
+
+### Contexte
+
+L'utilisateur a fourni un dossier `Downloads/for_claude_main_menu/` : maquette
+du menu (`page_main_menu (1).png`), planches de composants
+(`assets_game.png`, `clean-ceo-asset-sections.png`), fond sans UI
+(`image_fond.png`, 564×317), logo transparent (283×283), musique
+(`gamesound.mp3`, ~24 s), design system texte (`game_design_system.txt`) et
+guide de handoff (PDF). Analyse validée avec l'utilisateur avant tout code
+(GO explicite). Décisions actées : **XP** (pas ISP), projet renommé
+**CLEAN CEO** partout (y compris GitHub et Vercel), POC du menu uniquement.
+
+### Fait
+
+- **Main Menu en DOM/CSS** (`src/menu/`), pas en Phaser, pour qu'il
+  s'affiche immédiatement : fond de ville, logo, HUD de départ fixe
+  (500 FCFA / 0 XP / Bonne), 4 boutons (Nouvelle partie = action principale,
+  Reprendre = désactivé tant qu'aucune sauvegarde de partie n'existe,
+  Comment jouer, Options), 3 boutons-icônes (Langue = inactif, « bientôt » ;
+  Son = coupe/relance ; Paramètres = même modale qu'Options).
+- États des boutons selon le design system : hover (fond vert, +2 px, 150 ms),
+  pressed (−3 px, ombre réduite, 100 ms, action déclenchée après le feedback),
+  focus clavier (contour or), disabled (brun désaturé + petite secousse et son
+  grave au clic). Flèches haut/bas pour naviguer au clavier, Échap ferme les
+  modales. `prefers-reduced-motion` respecté.
+- **Design tokens** (`tokens.css`) issus de la palette verrouillée.
+- **Icônes SVG pixel** dessinées sur grille 16×16 (`icons.js`) — les planches
+  fournies sont des maquettes, pas des assets découpés.
+- **Son** (`SoundManager.js`) : musique en boucle, autoplay tenté puis
+  démarrage au premier geste si le navigateur bloque ; effets de survol/clic
+  synthétisés en Web Audio ; mute + volume mémorisés. La musique fond en
+  sortie au lancement d'une partie.
+- **Typo** : Pixelify Sans essayée puis rejetée par l'utilisateur
+  (illisible) → **Oxanium**. Fond passé de `pixelated` à lissé (trop
+  pixelisé selon l'utilisateur). Pied de page « CLEAN CEO » supprimé à sa
+  demande.
+- **Chargement différé** (`gameLoader.js`) : `src/main.js` n'importe plus
+  Phaser ; le jeu est un fichier séparé (`src/game.js`, ~1,5 Mo) chargé via
+  `import()`. Une fois le menu affiché, le code du jeu puis tous les assets de
+  la carte sont pré-téléchargés en arrière-plan ; « Nouvelle partie » affiche un
+  écran de chargement qui reprend la progression en cours, puis la carte.
+- **Bâtiments réduits** : le test en production a montré >2 min de
+  téléchargement de la carte à cause des 12,8 Mo de PNG de bâtiments (1536 px,
+  affichés en 72 px). Copies à 288 px générées dans
+  `public/assets/buildings-web/` (**637 Ko au total**), `ASSET_PATHS` pointe
+  dessus. **Les originaux de `public/assets/buildings/` sont conservés
+  intacts** (future version HD) ; l'écrasement direct avait été refusé par le
+  garde-fou de la session, d'où le dossier séparé.
+- **Renommage** : `package.json`, titre, README, CLAUDE.md ; repo GitHub
+  `clean-empire` → **`clean-ceo`** (l'ancienne URL redirige) ; projet Vercel
+  renommé `clean-ceo`, domaine **https://clean-ceo.vercel.app** ajouté,
+  `clean-empire.vercel.app` conservé et toujours fonctionnel.
+- **Vérifié** avec Chrome headless + puppeteer (hors projet, dans le
+  scratchpad) : captures 1920×1080, 1366×768, 390×844 ; survol, modales,
+  bouton son (mute mémorisé), écran de chargement, ouverture de la carte ;
+  aucune erreur console.
+
+### Bloqué / à valider par l'utilisateur
+
+- Le **son** n'a pas pu être écouté (session sans audio) : musique, blips de
+  survol/clic, fondu au lancement.
+- Fond et logo en basse résolution : version HD à fournir.
+- Icônes SVG jugées insuffisantes par l'utilisateur : un·e illustrateur·rice
+  va les refaire (voir spécifications données dans la conversation).
+- Clés localStorage de la carte gardées en `net-empire-*` (volontaire).
+
+### Prochaine étape
+
+Remplacer fond/logo HD et icônes quand ils arrivent (`public/assets/menu/`,
+`src/menu/icons.js`). Puis reprendre le gameplay : corriger d'abord l'ordre
+d'affichage des sprites (pas de tri de profondeur), puis première boucle de
+collecte.
