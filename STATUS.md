@@ -1114,3 +1114,53 @@ Remplacer fond/logo HD et icônes quand ils arrivent (`public/assets/menu/`,
 `src/menu/icons.js`). Puis reprendre le gameplay : corriger d'abord l'ordre
 d'affichage des sprites (pas de tri de profondeur), puis première boucle de
 collecte.
+
+---
+
+## 2026-09-24 — Carte plus regardable : plus de fond noir, ordre d'affichage, ancrage
+
+### Fait
+
+- **Repère « CENTRE DE DISTRIBUTION » supprimé définitivement** : il venait
+  du calque d'objets « Repères » du `.tmj` et était dessiné hors grille par
+  `placeLandmarks()` (non éditable). Fonction retirée de `mapLoader.js`.
+- **Plus de fond noir** (`src/mapDecor.js`, nouveau, purement visuel, hors
+  sauvegarde) :
+  - sol d'herbe infini : motif 64×32 sans raccord construit depuis la tuile
+    d'herbe, calé sur la grille, répété via un seul TileSprite, assombri
+    (`OUTSIDE_TINT`) pour signifier « hors zone » ;
+  - liseré sombre discret autour de la zone jouable ;
+  - bande de 12 cases d'arbres autour de la zone, clairsemée au bord et dense
+    au loin (aléatoire à graine fixe : toujours le même décor) ;
+  - nuages pixel générés en code (5 variantes, palette crème/beige), placés
+    hors du rectangle de la carte, qui ondulent lentement sur place (ne
+    traversent jamais la zone jouable ; immobiles si « réduire les
+    animations »). À remplacer par de vrais PNG dessinés quand ils existent.
+- **Caméra** : bornes élargies au décor (`CAMERA_MARGIN`), et zoom minimum
+  recalculé selon la taille de fenêtre pour que la vue tienne toujours dans
+  les bornes (sinon Phaser collait la carte dans le coin haut-gauche au
+  dézoom maximal).
+- **Ordre d'affichage corrigé** (bug relevé au deep dive) : plus de
+  `Container` ; chaque sprite a une profondeur (`depthFor()` / `DEPTH` dans
+  `mapLoader.js`) — sol et routes toujours dessous, éléments debout triés par
+  `col + row`. Peindre du sol à côté d'un bâtiment ne le recouvre plus.
+- **Éléments debout ancrés au sol** : origine à 90 % de la hauteur (marge
+  transparente mesurée sur les assets), proportions réelles respectées (les
+  bâtiments 3:2 n'étaient plus écrasés en carré), bâtiments en 84 px de
+  large. `anchorDy` stocké sur le sprite pour que le cadre de sélection de
+  l'éditeur reste centré sur la case.
+- **Bug corrigé au passage** : ouvrier, tricycle et camion (sprite-sheets
+  croppées) étaient affichés 3 à 4× trop petits — `setDisplaySize()` se
+  basait sur la planche entière ; remplacé par une échelle calculée sur la
+  zone croppée.
+- **Herbe moins « carrelage »** : légères variations de teinte déterministes
+  par case (`grassTintAt()`).
+- Calque masqué (case « Vue ») : une tuile posée dessus reste masquée.
+- Vérifié en headless (puppeteer) : zoom par défaut, dézoom max centré,
+  zoom max, peinture dans l'éditeur ; aucune erreur console.
+
+### Prochaine étape
+
+Vrais nuages dessinés (PNG transparents, 3–5 variantes, 256–512 px, palette
+crème `#F1E9D2` / ombre `#8C7860`) → remplacer `makeCloudTexture()` par un
+chargement d'images. Puis première boucle de gameplay (collecte).

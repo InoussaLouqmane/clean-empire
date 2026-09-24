@@ -157,21 +157,71 @@ export function computeMapBounds(widthInTiles, heightInTiles) {
   };
 }
 
-/** Taille d'affichage par défaut d'une texture. Pour un asset personnalisé,
- * dépend de la catégorie choisie dans le popup d'ajout (voir customAssets.js) ;
- * pour un asset intégré, selon son préfixe de clé. */
-function defaultDisplaySize(textureKey) {
+// ------------------------------------------------------------------------
+// Ordre d'affichage (profondeur) — corrigé le 2026-09-24.
+//
+// Avant : chaque sprite était ajouté à la fin d'un Container, donc tout ce
+// qui était posé en dernier passait devant tout le reste (ex. de l'herbe
+// repeinte à côté d'un bâtiment le recouvrait). Maintenant chaque sprite est
+// posé directement dans la scène avec une profondeur calculée :
+// - les calques plats (sol, routes) sont toujours sous tout le reste ;
+// - les éléments "debout" (bâtiments, décor, personnages) sont triés selon
+//   col + row : plus un objet est bas à l'écran, plus il passe devant.
+export const DEPTH = {
+  OUTSIDE_GROUND: -300000, // sol décoratif hors zone (voir mapDecor.js)
+  GROUND: -200000,
+  ROADS: -150000,
+  ZONE_OUTLINE: -100000, // liseré de la zone jouable (voir mapDecor.js)
+  MOVING: 900000, // sprite en cours de déplacement dans l'éditeur
+  CLOUDS: 1000000,
+};
+
+const FLAT_LAYERS = new Set(['ground', 'roads']);
+
+/** Profondeur d'un élément de la carte à (col, row) sur `layerName`. */
+export function depthFor(layerName, col, row) {
+  if (layerName === 'ground') return DEPTH.GROUND;
+  if (layerName === 'roads') return DEPTH.ROADS;
+  // ×10 pour laisser de la place à un départage entre calques sur une même case
+  return (col + row) * 10 + (layerName === 'details' ? 1 : 0);
+}
+
+// Les images "debout" ont ~10 % de marge transparente en bas (mesuré sur les
+// assets) : on les ancre à 90 % de leur hauteur pour que leur base touche le sol.
+const UPRIGHT_ORIGIN_Y = 0.9;
+// Décalage vertical du point d'ancrage depuis le centre de la case : les
+// bâtiments sont posés vers l'avant de leur case, le petit décor au centre.
+const BUILDING_ANCHOR_DY = 10;
+const PROP_ANCHOR_DY = 5;
+
+/** Largeur d'affichage des éléments debout (la hauteur suit les proportions
+ * réelles de l'image — avant, tout était forcé en carré et les bâtiments
+ * 3:2 étaient écrasés). */
+function uprightWidth(textureKey) {
   if (textureKey.startsWith('custom_')) {
     const entry = customAssets.loadCustomAssets().find((a) => a.key === textureKey);
-    if (entry) return customAssets.CATEGORY_DISPLAY_SIZE[entry.category] ?? [TILE_WIDTH, TILE_HEIGHT];
-    return [TILE_WIDTH, TILE_HEIGHT];
+    const [w] = customAssets.CATEGORY_DISPLAY_SIZE[entry?.category] ?? [32];
+    return w;
   }
-  if (textureKey.startsWith('tile_')) return [TILE_WIDTH, TILE_HEIGHT];
-  if (textureKey.startsWith('building_')) return [72, 72];
-  if (textureKey.startsWith('prop_')) return [32, 32];
-  if (textureKey === 'char_worker') return [32, 48];
-  if (textureKey.startsWith('vehicle_')) return [32, 32];
-  return [TILE_WIDTH, TILE_HEIGHT];
+  if (textureKey.startsWith('building_')) return 84;
+  if (textureKey.startsWith('vehicle_')) return 36;
+  return 32; // props, ouvrier
+}
+
+function isBuildingLike(textureKey) {
+  if (textureKey.startsWith('building_')) return true;
+  if (!textureKey.startsWith('custom_')) return false;
+  return customAssets.loadCustomAssets().find((a) => a.key === textureKey)?.category === 'buildings';
+}
+
+// Légères variations de teinte de l'herbe, pour casser l'effet "carrelage"
+// d'une seule tuile répétée. Déterministe (dépend de col/row) : la carte a
+// toujours le même aspect d'un chargement à l'autre.
+const GRASS_TINTS = [0xffffff, 0xf8faf3, 0xf3f6ec, 0xfdfaf1, 0xf5f8ef];
+
+export function grassTintAt(col, row) {
+  const h = Math.imul(col * 73856093 ^ row * 19349663, 0x5bd1e995) >>> 0;
+  return GRASS_TINTS[h % GRASS_TINTS.length];
 }
 
 /** Palette d'un calque : ses assets intégrés (LAYER_PALETTE) + les assets
@@ -198,9 +248,10 @@ function applyCrop(sprite, textureKey) {
   if (crop) sprite.setCrop(crop.x, crop.y, crop.width, crop.height);
 }
 
-/** Structure { layerName: [row][col] -> sprite | null }, un par cellule éditable. */
+/** Structure { layerName: [row][col] -> sprite | null }, un par cellule
+ * éditable, + `hiddenLayers` (calques masqués via la case Vue de l'éditeur). */
 export function createSpriteGrid(width, height) {
-  const grid = {};
+  const grid = { hiddenLayers: new Set() };
   for (const name of LAYER_NAMES) {
     grid[name] = Array.from({ length: height }, () => Array(width).fill(null));
   }
@@ -209,7 +260,7 @@ export function createSpriteGrid(width, height) {
 
 /** Détruit tous les sprites de `spriteGrid` et remet chaque cellule à null. */
 export function clearSpriteGrid(spriteGrid) {
-  for (const layerName of Object.keys(spriteGrid)) {
+  for (const layerName of LAYER_NAMES) {
     for (const row of spriteGrid[layerName]) {
       for (let col = 0; col < row.length; col++) {
         if (row[col]) {
@@ -251,14 +302,30 @@ export function nextOrientation(flipX, flipY) {
  * `null` efface la cellule. Fonction unique utilisée aussi bien pour le rendu
  * initial (buildFromGrid) que par l'éditeur en direct.
  */
-export function placeTileAt(scene, container, spriteGrid, layerName, col, row, cell) {
+export function placeTileAt(scene, spriteGrid, layerName, col, row, cell) {
   const existing = spriteGrid[layerName]?.[row]?.[col];
+  // Un calque masqué (case "Vue" de l'éditeur) doit le rester même quand on
+  // y pose une nouvelle tuile.
+  const visible = !spriteGrid.hiddenLayers.has(layerName);
   if (existing) {
     existing.destroy();
     spriteGrid[layerName][row][col] = null;
   }
   if (!cell) return;
 
+  const sprite = createCellSprite(scene, layerName, col, row, cell);
+  sprite.setVisible(visible);
+  spriteGrid[layerName][row][col] = sprite;
+}
+
+/**
+ * Crée le sprite d'une cellule { key, flipX, flipY } à (col, row), avec sa
+ * taille, son ancrage au sol et sa profondeur. Réutilisé par mapDecor.js pour
+ * le décor hors zone (arbres de bordure).
+ * `sprite.getData('anchorDy')` = écart vertical entre la position du sprite et
+ * le centre de sa case (utile pour caler le cadre de sélection de l'éditeur).
+ */
+export function createCellSprite(scene, layerName, col, row, cell) {
   const textureKey = cell.key;
   const isWater = textureKey === 'tile_water';
   const realKey = isWater ? 'tile_sidewalk' : textureKey;
@@ -266,64 +333,52 @@ export function placeTileAt(scene, container, spriteGrid, layerName, col, row, c
 
   const sprite = scene.add.sprite(x, y, realKey);
   applyCrop(sprite, realKey);
-
-  const [w, h] = defaultDisplaySize(textureKey);
-  sprite.setDisplaySize(w, h);
   sprite.setFlipX(!!cell.flipX);
   sprite.setFlipY(!!cell.flipY);
+  sprite.setDepth(depthFor(layerName, col, row));
 
-  if (isWater) sprite.setTint(WATER_TINT);
+  if (FLAT_LAYERS.has(layerName)) {
+    sprite.setDisplaySize(TILE_WIDTH, TILE_HEIGHT);
+    sprite.setData('anchorDy', 0);
+    if (isWater) sprite.setTint(WATER_TINT);
+    else if (textureKey === 'tile_grass') sprite.setTint(grassTintAt(col, row));
+    return sprite;
+  }
 
-  container.add(sprite);
-  spriteGrid[layerName][row][col] = sprite;
+  const crop = TEXTURE_CROP[realKey];
+  const frame = scene.textures.getFrame(realKey);
+  const srcW = crop?.width ?? frame?.width ?? 1;
+  // Échelle calculée sur la zone visible : setDisplaySize() se base sur la
+  // texture ENTIÈRE, ce qui rendait les sprite-sheets (ouvrier, tricycle,
+  // camion) 3 à 4 fois trop petits une fois croppés.
+  sprite.setScale(uprightWidth(textureKey) / srcW);
+
+  // setCrop travaille en coordonnées de texture : l'origine doit être
+  // calculée sur la zone croppée (sprite-sheets), pas sur toute l'image.
+  if (crop) {
+    sprite.setOrigin(
+      (crop.x + crop.width / 2) / frame.width,
+      (crop.y + crop.height * UPRIGHT_ORIGIN_Y) / frame.height
+    );
+  } else {
+    sprite.setOrigin(0.5, UPRIGHT_ORIGIN_Y);
+  }
+
+  const anchorDy = isBuildingLike(textureKey) ? BUILDING_ANCHOR_DY : PROP_ANCHOR_DY;
+  sprite.y = y + anchorDy;
+  sprite.setData('anchorDy', anchorDy);
+  return sprite;
 }
 
 /** Construit tous les sprites initiaux à partir d'une carte au format Net Empire. */
-export function buildFromGrid(scene, container, spriteGrid, gridData) {
+export function buildFromGrid(scene, spriteGrid, gridData) {
   for (const layerName of Object.keys(gridData.layers)) {
     const rows = gridData.layers[layerName];
     for (let row = 0; row < rows.length; row++) {
       for (let col = 0; col < rows[row].length; col++) {
         const cell = rows[row][col];
-        if (cell) placeTileAt(scene, container, spriteGrid, layerName, col, row, cell);
+        if (cell) placeTileAt(scene, spriteGrid, layerName, col, row, cell);
       }
     }
-  }
-}
-
-// Les coordonnées d'objets Tiled sur une carte isométrique sont exprimées dans un
-// espace pixel où x et y sont TOUS LES DEUX divisés par tileHeight (pas
-// tileWidth) pour retrouver une position de grille fractionnaire, avant
-// application de la même projection iso que les calques de tuiles. C'est la
-// convention du renderer isométrique de Tiled lui-même.
-function objectToScreen(objX, objY) {
-  const col = objX / TILE_HEIGHT;
-  const row = objY / TILE_HEIGHT;
-  return isoToScreen(col, row);
-}
-
-/** Affiche les objets sans image du calque "Repères" (ex. CENTRE DE
- * DISTRIBUTION) en marqueurs statiques. Ne fait pas partie de la grille
- * éditable — lu directement depuis le JSON Tiled d'origine. */
-export function placeLandmarks(scene, container, tiledJson) {
-  const landmarks = tiledJson.layers.find((l) => l.type === 'objectgroup' && l.name === 'Repères');
-  if (!landmarks) return;
-
-  for (const obj of landmarks.objects) {
-    if (!obj.visible) continue;
-    const { x, y } = objectToScreen(obj.x, obj.y);
-
-    const marker = scene.add.circle(x, y, 6, 0xc79a3b).setStrokeStyle(2, 0x1b1712);
-    const label = scene.add
-      .text(x, y - 14, obj.name, {
-        fontSize: '12px',
-        color: '#f1e9d2',
-        backgroundColor: '#1b1712',
-        padding: { x: 4, y: 2 },
-      })
-      .setOrigin(0.5, 1);
-
-    container.add(marker);
-    container.add(label);
   }
 }

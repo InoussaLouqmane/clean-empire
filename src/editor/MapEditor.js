@@ -49,9 +49,8 @@ const DRAG_THRESHOLD = 6; // px écran — en dessous, un pointerdown→up est u
  * - **'paint'** : clic/glissé pose `brushKey` (sélectionné dans la palette).
  */
 export class MapEditor {
-  constructor(scene, { container, grid, spriteGrid, onChange, onOrientationChange, onToolChange }) {
+  constructor(scene, { grid, spriteGrid, onChange, onOrientationChange, onToolChange }) {
     this.scene = scene;
-    this.container = container;
     this.grid = grid;
     this.spriteGrid = spriteGrid;
     this.onChange = onChange;
@@ -190,10 +189,14 @@ export class MapEditor {
     if (!this.selectedCell) return null;
     const { layerName, col, row } = this.selectedCell;
     const sprite = this.spriteGrid[layerName]?.[row]?.[col];
-    return sprite ? { x: sprite.x, y: sprite.y } : null;
+    // Les éléments debout sont ancrés au sol (voir createCellSprite) : on
+    // retire ce décalage pour que le cadre reste centré sur la case.
+    return sprite ? { x: sprite.x, y: sprite.y - (sprite.getData('anchorDy') ?? 0) } : null;
   }
 
   setLayerVisible(layerName, visible) {
+    if (visible) this.spriteGrid.hiddenLayers.delete(layerName);
+    else this.spriteGrid.hiddenLayers.add(layerName);
     for (const row of this.spriteGrid[layerName]) {
       for (const sprite of row) {
         if (sprite) sprite.setVisible(visible);
@@ -214,7 +217,7 @@ export class MapEditor {
     );
 
     mapLoader.clearSpriteGrid(this.spriteGrid);
-    mapLoader.buildFromGrid(this.scene, this.container, this.spriteGrid, this.grid);
+    mapLoader.buildFromGrid(this.scene, this.spriteGrid, this.grid);
 
     this.undoStack = [];
     this.redoStack = [];
@@ -229,7 +232,6 @@ export class MapEditor {
       this.grid.layers[change.layerName][change.row][change.col] = change.prevValue;
       mapLoader.placeTileAt(
         this.scene,
-        this.container,
         this.spriteGrid,
         change.layerName,
         change.col,
@@ -249,7 +251,6 @@ export class MapEditor {
       this.grid.layers[change.layerName][change.row][change.col] = change.newValue;
       mapLoader.placeTileAt(
         this.scene,
-        this.container,
         this.spriteGrid,
         change.layerName,
         change.col,
@@ -277,7 +278,7 @@ export class MapEditor {
     if (mapLoader.cellsEqual(prevValue, newValue)) return;
 
     this.grid.layers[layerName][row][col] = newValue;
-    mapLoader.placeTileAt(this.scene, this.container, this.spriteGrid, layerName, col, row, newValue);
+    mapLoader.placeTileAt(this.scene, this.spriteGrid, layerName, col, row, newValue);
 
     this.undoStack.push([{ layerName, col, row, prevValue, newValue }]);
     this.redoStack = [];
@@ -422,7 +423,7 @@ export class MapEditor {
     }
 
     this.grid.layers[this.activeLayer][row][col] = cellValue;
-    mapLoader.placeTileAt(this.scene, this.container, this.spriteGrid, this.activeLayer, col, row, cellValue);
+    mapLoader.placeTileAt(this.scene, this.spriteGrid, this.activeLayer, col, row, cellValue);
     this.onChange();
   }
 
@@ -441,7 +442,8 @@ export class MapEditor {
     const sprite = this.spriteGrid[layerName]?.[row]?.[col];
     if (!sprite) return;
     sprite.x = pointer.worldX;
-    sprite.y = pointer.worldY;
+    sprite.y = pointer.worldY + (sprite.getData('anchorDy') ?? 0);
+    sprite.setDepth(mapLoader.DEPTH.MOVING); // passe au-dessus de tout pendant le glissé
   }
 
   _commitMove(pointer) {
@@ -455,7 +457,7 @@ export class MapEditor {
     if (outOfBounds || noRealMove) {
       // Remet le sprite exactement à sa place d'origine (pendant l'aperçu, sa
       // position suivait librement le pointeur).
-      mapLoader.placeTileAt(this.scene, this.container, this.spriteGrid, layerName, oldCol, oldRow, cellValue);
+      mapLoader.placeTileAt(this.scene, this.spriteGrid, layerName, oldCol, oldRow, cellValue);
       return;
     }
 
@@ -464,8 +466,8 @@ export class MapEditor {
     this.grid.layers[layerName][oldRow][oldCol] = null;
     this.grid.layers[layerName][newRow][newCol] = cellValue;
 
-    mapLoader.placeTileAt(this.scene, this.container, this.spriteGrid, layerName, oldCol, oldRow, null);
-    mapLoader.placeTileAt(this.scene, this.container, this.spriteGrid, layerName, newCol, newRow, cellValue);
+    mapLoader.placeTileAt(this.scene, this.spriteGrid, layerName, oldCol, oldRow, null);
+    mapLoader.placeTileAt(this.scene, this.spriteGrid, layerName, newCol, newRow, cellValue);
 
     this.undoStack.push([
       { layerName, col: oldCol, row: oldRow, prevValue: cellValue, newValue: null },

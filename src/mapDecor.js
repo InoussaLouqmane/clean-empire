@@ -1,0 +1,240 @@
+import Phaser from 'phaser';
+import {
+  TILE_WIDTH,
+  TILE_HEIGHT,
+  DEPTH,
+  isoToScreen,
+  computeMapBounds,
+  createCellSprite,
+  makeCell,
+} from './mapLoader.js';
+
+// Décor HORS de la zone jouable (ajouté le 2026-09-24, demande utilisateur :
+// "on ne doit plus avoir de noir", l'horizon doit sembler continuer).
+// Rien ici ne fait partie de la carte éditable ni de la sauvegarde : c'est
+// purement visuel, régénéré à l'identique à chaque chargement (aléatoire à
+// graine fixe).
+//
+// Trois couches, de la plus basse à la plus haute :
+// 1. un sol d'herbe répété à l'infini, assombri (= "hors zone") ;
+// 2. une bande d'arbres autour de la zone, de plus en plus dense en s'éloignant ;
+// 3. des nuages pixel sur l'horizon, qui ondulent lentement.
+// + un liseré discret qui marque la limite de la zone jouable.
+
+const OUTSIDE_TINT = 0x9ea58c; // assombrit/désature l'herbe et les arbres hors zone
+const OUTSIDE_EXTENT = 7000; // px monde couverts autour de la carte (couvre le zoom ×0.3)
+const TREE_RING = 12; // largeur (en cases) de la bande d'arbres
+const CLOUD_COUNT = 44;
+const SEED = 20260924;
+
+/** Petit générateur pseudo-aléatoire à graine (mulberry32) : décor stable. */
+function makeRng(seed) {
+  let a = seed >>> 0;
+  return () => {
+    a = (a + 0x6d2b79f5) >>> 0;
+    let t = a;
+    t = Math.imul(t ^ (t >>> 15), t | 1);
+    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+/** Crée tout le décor hors zone. Renvoie un objet dont `update(time)` est à
+ * appeler à chaque frame (animation des nuages). */
+export function createMapDecor(scene, grid) {
+  const bounds = computeMapBounds(grid.width, grid.height);
+  createOutsideGround(scene, bounds);
+  createZoneOutline(scene, grid);
+  createTreeRing(scene, grid);
+  const clouds = createClouds(scene, bounds);
+  return { update: (time) => clouds.update(time) };
+}
+
+// ------------------------------------------------------------ 1. sol infini
+
+function createOutsideGround(scene, bounds) {
+  // Motif rectangulaire 64×32 qui se répète sans raccord : un losange d'herbe
+  // entier au centre + un quart de losange dans chaque coin. Les losanges du
+  // motif tombent exactement sur la grille de la carte (voir le calage plus bas).
+  const key = 'outside_ground_pattern';
+  if (!scene.textures.exists(key)) {
+    const canvasTex = scene.textures.createCanvas(key, TILE_WIDTH, TILE_HEIGHT);
+    const ctx = canvasTex.getContext();
+    const src = scene.textures.get('tile_grass').getSourceImage();
+    const w = TILE_WIDTH;
+    const h = TILE_HEIGHT;
+    for (const [cx, cy] of [
+      [w / 2, h / 2],
+      [0, 0],
+      [w, 0],
+      [0, h],
+      [w, h],
+    ]) {
+      ctx.drawImage(src, cx - w / 2, cy - h / 2, w, h);
+    }
+    canvasTex.refresh();
+  }
+
+  // Coin haut-gauche calé sur un multiple de 64×32 = le centre d'une case de
+  // la grille (col-row pair) : le motif prolonge la grille sans décalage.
+  const left = Math.floor((bounds.minX - OUTSIDE_EXTENT) / TILE_WIDTH) * TILE_WIDTH;
+  const top = Math.floor((bounds.minY - OUTSIDE_EXTENT) / TILE_HEIGHT) * TILE_HEIGHT;
+  const right = Math.ceil((bounds.maxX + OUTSIDE_EXTENT) / TILE_WIDTH) * TILE_WIDTH;
+  const bottom = Math.ceil((bounds.maxY + OUTSIDE_EXTENT) / TILE_HEIGHT) * TILE_HEIGHT;
+
+  scene.add
+    .tileSprite(left, top, right - left, bottom - top, key)
+    .setOrigin(0, 0)
+    .setTint(OUTSIDE_TINT)
+    .setDepth(DEPTH.OUTSIDE_GROUND);
+}
+
+// ---------------------------------------------------- liseré de la zone
+
+function createZoneOutline(scene, grid) {
+  const hw = TILE_WIDTH / 2;
+  const hh = TILE_HEIGHT / 2;
+  const { width: W, height: H } = grid;
+  const topV = isoToScreen(0, 0);
+  const rightV = isoToScreen(W - 1, 0);
+  const bottomV = isoToScreen(W - 1, H - 1);
+  const leftV = isoToScreen(0, H - 1);
+  const points = [
+    new Phaser.Math.Vector2(topV.x, topV.y - hh),
+    new Phaser.Math.Vector2(rightV.x + hw, rightV.y),
+    new Phaser.Math.Vector2(bottomV.x, bottomV.y + hh),
+    new Phaser.Math.Vector2(leftV.x - hw, leftV.y),
+  ];
+
+  scene.add
+    .graphics()
+    .setDepth(DEPTH.ZONE_OUTLINE)
+    .lineStyle(4, 0x1b1712, 0.35)
+    .strokePoints(points, true, true);
+}
+
+// ------------------------------------------------------ 2. bande d'arbres
+
+function createTreeRing(scene, grid) {
+  const rng = makeRng(SEED);
+  const { width: W, height: H } = grid;
+  const treeCell = makeCell('prop_tree');
+
+  for (let row = -TREE_RING; row < H + TREE_RING; row++) {
+    for (let col = -TREE_RING; col < W + TREE_RING; col++) {
+      const inside = col >= 0 && col < W && row >= 0 && row < H;
+      if (inside) continue;
+
+      // distance (en cases) jusqu'à la zone jouable
+      const dCol = col < 0 ? -col : col >= W ? col - W + 1 : 0;
+      const dRow = row < 0 ? -row : row >= H ? row - H + 1 : 0;
+      const d = Math.max(dCol, dRow);
+      // Clairsemé au bord (la limite reste lisible), dense au loin (la
+      // "forêt" continue vers l'horizon).
+      const density = Math.min(0.55, 0.05 * d);
+      if (rng() > density) continue;
+
+      const flipped = rng() < 0.5;
+      const tree = createCellSprite(scene, 'details', col, row, makeCell(treeCell.key, flipped, false));
+      tree.setTint(OUTSIDE_TINT);
+      // petite variation de taille pour éviter l'effet "copier-coller"
+      tree.setScale(tree.scaleX * (0.85 + rng() * 0.4));
+    }
+  }
+}
+
+// --------------------------------------------------------------- 3. nuages
+
+const CLOUD_PIXEL = 4; // taille d'un "pixel" de nuage, en px de texture
+const CLOUD_VARIANTS = 5;
+
+/** Dessine une texture de nuage pixel art (union d'ellipses sur une grille,
+ * corps crème + dessous légèrement ombré). Palette verrouillée uniquement. */
+function makeCloudTexture(scene, key, rng) {
+  const cols = 40 + Math.floor(rng() * 18);
+  const rows = 22 + Math.floor(rng() * 6);
+  const blobs = [];
+  const blobCount = 4 + Math.floor(rng() * 3);
+  for (let i = 0; i < blobCount; i++) {
+    // bosses rondes, les centrales plus hautes : silhouette de cumulus
+    const t = i / Math.max(1, blobCount - 1);
+    const middle = 1 - Math.abs(t - 0.5) * 2;
+    const ry = rows * (0.26 + 0.2 * middle + rng() * 0.06);
+    const rx = Math.max(ry * 1.15, cols * (0.14 + rng() * 0.06));
+    const cx = rx + (cols - 2 * rx) * t;
+    const cy = rows - ry - 1;
+    blobs.push({ cx, cy, rx, ry });
+  }
+
+  const canvasTex = scene.textures.createCanvas(key, cols * CLOUD_PIXEL, rows * CLOUD_PIXEL);
+  const ctx = canvasTex.getContext();
+  for (let y = 0; y < rows; y++) {
+    for (let x = 0; x < cols; x++) {
+      const px = x + 0.5;
+      const py = y + 0.5;
+      const hit = blobs.find((b) => ((px - b.cx) / b.rx) ** 2 + ((py - b.cy) / b.ry) ** 2 <= 1);
+      if (!hit) continue;
+      const lower = py > hit.cy + hit.ry * 0.35;
+      ctx.fillStyle = '#F1E9D2';
+      ctx.fillRect(x * CLOUD_PIXEL, y * CLOUD_PIXEL, CLOUD_PIXEL, CLOUD_PIXEL);
+      if (lower) {
+        ctx.fillStyle = 'rgba(140, 120, 96, 0.32)'; // #8C7860 en transparence
+        ctx.fillRect(x * CLOUD_PIXEL, y * CLOUD_PIXEL, CLOUD_PIXEL, CLOUD_PIXEL);
+      }
+    }
+  }
+  canvasTex.refresh();
+  canvasTex.setFilter(Phaser.Textures.FilterMode.NEAREST);
+}
+
+function createClouds(scene, bounds) {
+  const rng = makeRng(SEED + 1);
+  for (let i = 0; i < CLOUD_VARIANTS; i++) {
+    const key = `decor_cloud_${i}`;
+    if (!scene.textures.exists(key)) makeCloudTexture(scene, key, rng);
+  }
+
+  // Les nuages restent HORS du rectangle de la carte (+ marge) : ils habillent
+  // l'horizon sans jamais masquer la zone jouable.
+  const inner = {
+    minX: bounds.minX - 180,
+    maxX: bounds.maxX + 180,
+    minY: bounds.minY - 140,
+    maxY: bounds.maxY + 140,
+  };
+  const outer = {
+    minX: bounds.minX - 2400,
+    maxX: bounds.maxX + 2400,
+    minY: bounds.minY - 1500,
+    maxY: bounds.maxY + 1500,
+  };
+
+  const clouds = [];
+  let attempts = 0;
+  while (clouds.length < CLOUD_COUNT && attempts++ < 2000) {
+    const x = outer.minX + rng() * (outer.maxX - outer.minX);
+    const y = outer.minY + rng() * (outer.maxY - outer.minY);
+    if (x > inner.minX && x < inner.maxX && y > inner.minY && y < inner.maxY) continue;
+
+    const sprite = scene.add
+      .image(x, y, `decor_cloud_${Math.floor(rng() * CLOUD_VARIANTS)}`)
+      .setScale(1.4 + rng() * 1.6)
+      .setAlpha(0.82 + rng() * 0.15)
+      .setFlipX(rng() < 0.5)
+      .setDepth(DEPTH.CLOUDS + y); // les nuages du bas passent devant ceux du haut
+    clouds.push({ sprite, baseX: x, amp: 30 + rng() * 50, speed: 0.00012 + rng() * 0.00018, phase: rng() * 6.28 });
+  }
+
+  const reduceMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+
+  return {
+    // Ondulation lente d'avant en arrière (pas de dérive continue : un nuage
+    // ne traverse jamais la zone jouable).
+    update(time) {
+      if (reduceMotion) return;
+      for (const c of clouds) {
+        c.sprite.x = Math.round(c.baseX + Math.sin(time * c.speed + c.phase) * c.amp);
+      }
+    },
+  };
+}

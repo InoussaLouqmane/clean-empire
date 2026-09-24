@@ -3,11 +3,14 @@ import { CameraController } from '../CameraController.js';
 import * as mapLoader from '../mapLoader.js';
 import * as mapData from '../mapData.js';
 import * as customAssets from '../customAssets.js';
+import { createMapDecor } from '../mapDecor.js';
 import { MapEditor } from '../editor/MapEditor.js';
 import { EditorPanel } from '../editor/EditorPanel.js';
 import { SelectionFrame } from '../editor/SelectionFrame.js';
 import { AddAssetModal } from '../editor/AddAssetModal.js';
 
+const MIN_ZOOM = 0.3;
+const CAMERA_MARGIN = 1400; // px monde autour de la carte : forêt + nuages du décor
 const SELECTION_FRAME_WORLD_SIZE = 56; // demi-tuile de marge autour d'une tuile 64×32
 
 // Carte du jeu, éditable en direct (voir editor/). Le premier chargement
@@ -25,14 +28,15 @@ export class MapScene extends Phaser.Scene {
   }
 
   create() {
-    const container = this.add.container(0, 0);
-
     const tiledJson = mapLoader.getRawTiledJson(this);
     const grid = mapData.loadSavedGrid() ?? mapData.convertTiledToGrid(tiledJson);
 
     const spriteGrid = mapLoader.createSpriteGrid(grid.width, grid.height);
-    mapLoader.buildFromGrid(this, container, spriteGrid, grid);
-    mapLoader.placeLandmarks(this, container, tiledJson);
+    mapLoader.buildFromGrid(this, spriteGrid, grid);
+    // Sol, arbres et nuages HORS de la zone jouable : plus de fond noir.
+    // (Le repère "CENTRE DE DISTRIBUTION" issu de Tiled, qui s'affichait
+    // hors de la carte, a été retiré définitivement le 2026-09-24.)
+    this.decor = createMapDecor(this, grid);
 
     const bounds = mapLoader.computeMapBounds(grid.width, grid.height);
     this.cameras.main.centerOn(
@@ -40,21 +44,32 @@ export class MapScene extends Phaser.Scene {
       (bounds.minY + bounds.maxY) / 2
     );
 
-    const margin = mapLoader.TILE_WIDTH * 4;
-    this.cameras.main.setBounds(
-      bounds.minX - margin,
-      bounds.minY - margin,
-      bounds.maxX - bounds.minX + margin * 2,
-      bounds.maxY - bounds.minY + margin * 2
-    );
+    // Les bornes englobent la forêt et les nuages du décor (mapDecor.js) : on
+    // peut panner jusqu'à l'horizon, jamais au-delà.
+    const boundsWidth = bounds.maxX - bounds.minX + CAMERA_MARGIN * 2;
+    const boundsHeight = bounds.maxY - bounds.minY + CAMERA_MARGIN * 2;
+    this.cameras.main.setBounds(bounds.minX - CAMERA_MARGIN, bounds.minY - CAMERA_MARGIN, boundsWidth, boundsHeight);
 
     this.cameraController = new CameraController(this, {
-      minZoom: 0.3,
+      minZoom: MIN_ZOOM,
       maxZoom: 2.5,
     });
 
+    // Si la vue dézoomée devient plus grande que les bornes, Phaser la colle
+    // au bord haut-gauche des bornes (la carte partait dans un coin). On
+    // limite donc le dézoom pour que la vue tienne toujours dans les bornes,
+    // recalculé quand la fenêtre change de taille.
+    const fitMinZoom = () => {
+      const cam = this.cameras.main;
+      const minZoom = Math.max(MIN_ZOOM, cam.width / boundsWidth, cam.height / boundsHeight);
+      this.cameraController.minZoom = minZoom;
+      if (cam.zoom < minZoom) cam.setZoom(minZoom);
+    };
+    fitMinZoom();
+    this.scale.on('resize', fitMinZoom);
+    this.events.once('shutdown', () => this.scale.off('resize', fitMinZoom));
+
     this.mapEditor = new MapEditor(this, {
-      container,
       grid,
       spriteGrid,
       onChange: () => mapData.saveGrid(grid),
@@ -101,8 +116,9 @@ export class MapScene extends Phaser.Scene {
     });
   }
 
-  update() {
+  update(time) {
     this.cameraController.update();
+    this.decor.update(time);
     this._updateSelectionFrame();
   }
 

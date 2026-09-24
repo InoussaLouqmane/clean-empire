@@ -188,3 +188,14 @@ pour le détail exact et la prochaine étape.
 - Les clés localStorage de la carte restent `net-empire-map-v2` et
   `net-empire-custom-assets-v1` malgré le renommage : les changer ferait perdre
   les cartes déjà éditées.
+
+## Rendu de la carte (depuis le 2026-09-24)
+
+- **Profondeur** : pas de `Container`. Toute création de sprite de carte passe
+  par `createCellSprite()` / `placeTileAt()` (`mapLoader.js`), qui fixent la
+  profondeur via `depthFor(layer, col, row)` et les constantes `DEPTH`.
+  Sol/routes toujours dessous ; éléments debout triés par `col + row`.
+- Éléments debout ancrés au sol (origine y = 0.9, proportions réelles) ;
+  `sprite.getData('anchorDy')` donne l'écart avec le centre de la case.
+- `src/mapDecor.js` : décor hors zone (sol infini, arbres, nuages, liseré).
+  Purement visuel : jamais sauvegardé, jamais éditable.
