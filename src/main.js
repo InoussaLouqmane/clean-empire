@@ -1,27 +1,42 @@
-import Phaser from 'phaser';
-import { CalibrationScene } from './scenes/CalibrationScene.js';
-import { MapScene } from './scenes/MapScene.js';
+import './menu/tokens.css';
+import './menu/menu.css';
+import { MainMenu } from './menu/MainMenu.js';
+import { SoundManager } from './menu/SoundManager.js';
+import { preloadGame, preloadGameWhenMenuIsReady, onPreloadProgress } from './menu/gameLoader.js';
 
-const config = {
-  type: Phaser.AUTO,
-  parent: 'game-container',
-  backgroundColor: '#1b1712',
-  scale: {
-    // RESIZE fait correspondre le canvas à la taille de son parent en continu.
-    // Ne pas combiner avec autoCenter (prévu pour FIT/ENVELOP) : les deux ensemble
-    // laissaient le canvas à sa taille initiale, centré, au lieu de remplir l'écran.
-    mode: Phaser.Scale.RESIZE,
-    width: window.innerWidth,
-    height: window.innerHeight,
+// Point d'entrée : UNIQUEMENT le menu. Aucun import de Phaser ici — le jeu
+// (src/game.js) est chargé à la demande, voir menu/gameLoader.js.
+
+const sound = new SoundManager();
+let starting = false;
+
+const menu = new MainMenu({
+  root: document.getElementById('menu-root'),
+  sound,
+  onNewGame: async () => {
+    if (starting) return;
+    starting = true;
+
+    sound.fadeOutMusic();
+    const loading = menu.showLoading();
+    const unsubscribe = onPreloadProgress(({ loaded, total }) => loading.setProgress(loaded / total));
+
+    let game;
+    try {
+      game = await preloadGame();
+    } catch (err) {
+      console.error(err);
+      loading.setTitle('Impossible de charger la partie. Recharge la page.');
+      return;
+    } finally {
+      unsubscribe();
+    }
+    loading.setProgress(1);
+    loading.setTitle('Préparation de la carte…');
+
+    game.startGame({ onReady: () => menu.destroy() });
   },
-  // MapScene (la vraie carte) est active en premier. CalibrationScene reste
-  // enregistrée mais inutilisée par défaut — utile pour retester la caméra seule
-  // si besoin, sans dépendre du chargement de la carte.
-  scene: [MapScene, CalibrationScene],
-};
-
-const game = new Phaser.Game(config);
-
-window.addEventListener('resize', () => {
-  game.scale.resize(window.innerWidth, window.innerHeight);
 });
+
+sound.start();
+preloadGameWhenMenuIsReady();

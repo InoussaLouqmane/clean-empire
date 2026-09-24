@@ -1,6 +1,6 @@
 <div align="center">
 
-# 🗑️♟️ Net Empire
+# 🗑️♟️ CLEAN CEO
 
 **Un empire de la collecte de déchets, vu du ciel — en isométrique.**
 
@@ -12,7 +12,7 @@ ramène tout au dépôt, et regarde ton FCFA et ta réputation grimper.
 [![Vite](https://img.shields.io/badge/Vite-5-646CFF?logo=vite&logoColor=white)](https://vitejs.dev/)
 [![JavaScript](https://img.shields.io/badge/JavaScript-ES_Modules-F7DF1E?logo=javascript&logoColor=black)](https://developer.mozilla.org/docs/Web/JavaScript)
 [![Status](https://img.shields.io/badge/status-en_construction-orange)](./STATUS.md)
-[![Deployed on Vercel](https://img.shields.io/badge/deployed_on-Vercel-000000?logo=vercel&logoColor=white)](https://clean-empire.vercel.app)
+[![Deployed on Vercel](https://img.shields.io/badge/deployed_on-Vercel-000000?logo=vercel&logoColor=white)](https://clean-ceo.vercel.app)
 
 </div>
 
@@ -31,6 +31,10 @@ plus rapide et honorer les contrats à temps fait grandir l'empire.
 > [`STATUS.md`](./STATUS.md) — toujours à jour, jamais réécrit.
 
 ## ✨ Ce qui fonctionne aujourd'hui
+
+- 🏠 **Main Menu** : ville en fond, logo, Nouvelle partie / Comment jouer /
+  Options, musique avec bouton son. Il s'affiche tout de suite ; le jeu
+  (Phaser + carte) se télécharge en arrière-plan pendant ce temps
 
 - 🗺️ Rendu isométrique dimétrique (tuiles 64×32) plein écran, responsive
 - 🖱️ **Caméra** : glisser pour panner (souris et tactile), molette / pincement pour
@@ -51,7 +55,7 @@ prochaine étape en cours.
 
 ## 🕹️ Live demo
 
-👉 **[Jouer à la démo](https://clean-empire.vercel.app)**
+👉 **[Jouer à la démo](https://clean-ceo.vercel.app)**
 
 *(La démo en ligne peut être en retard par rapport à `main` — le travail se
 fait actuellement surtout en local avant de pousser, voir STATUS.md.)*

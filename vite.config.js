@@ -28,6 +28,12 @@ function isOutsideProject(filePath) {
 export default defineConfig({
   root: '.',
   publicDir: 'public',
+  build: {
+    // Le fichier du jeu (Phaser ~1,5 Mo) est chargé à part, en arrière-plan,
+    // après l'affichage du menu (voir src/menu/gameLoader.js) : sa taille est
+    // assumée, inutile d'avertir à chaque build.
+    chunkSizeWarningLimit: 1600,
+  },
   server: {
     open: true,
     watch: {

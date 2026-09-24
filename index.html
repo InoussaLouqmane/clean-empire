@@ -3,7 +3,19 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-    <title>Net Empire</title>
+    <title>CLEAN CEO</title>
+    <link rel="icon" type="image/png" href="/assets/menu/logo_clean_ceo.png" />
+    <!-- Le menu s'affiche en premier : on précharge SES assets (fond, logo,
+         musique) avant tout. Le jeu (Phaser + carte) est téléchargé ensuite, en
+         arrière-plan — voir src/menu/gameLoader.js. -->
+    <link rel="preload" as="image" href="/assets/menu/main_menu_background.png" />
+    <link rel="preload" as="image" href="/assets/menu/logo_clean_ceo.png" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=Oxanium:wght@400..800&display=swap"
+    />
     <style>
       html, body {
         margin: 0;
@@ -27,6 +39,7 @@
   </head>
   <body>
     <div id="game-container"></div>
+    <div id="menu-root"></div>
     <script type="module" src="/src/main.js"></script>
   </body>
 </html>

@@ -1,4 +1,4 @@
-# CLAUDE.md — Net Empire
+# CLAUDE.md — CLEAN CEO
 
 Ce fichier est le point d'entrée pour toute session Claude Code (ou tout autre agent IA)
 reprenant ce projet. Il liste les décisions déjà prises et verrouillées : ne pas les
@@ -10,7 +10,7 @@ Avant de travailler sur ce projet, lire aussi :
 
 ## Résumé du projet
 
-"Net Empire" est un jeu 2D isométrique de gestion/logistique, développé pendant un
+"CLEAN CEO" (anciennement "Net Empire", renommé le 2026-09-24) est un jeu 2D isométrique de gestion/logistique, développé pendant un
 workshop game design. Le joueur gère une flotte (ouvriers → tricycle → camion) qui
 collecte des déchets chez des clients et les ramène à un point de dépôt / QG, avec une
 progression économique (FCFA) et de réputation/XP.
@@ -38,10 +38,10 @@ livrer d'un coup.
 #1B1712 #6B5A46 #8C7860 #4C6B3F #6E8F52 #9C5B3E #C98F5E #5B4632 #1F5E52 #C79A3B #A23B2A #F1E9D2
 ```
 
-Cette palette n'est **pas encore utilisée** dans le code actuel : la grille de
-calibration de `CalibrationScene.js` utilise des couleurs neutres génériques
-(gris/bleu) volontairement différentes, pour ne pas mélanger "calibration technique"
-et "direction artistique" tant que les vrais assets ne sont pas branchés.
+Depuis le 2026-09-24, cette palette est la source des design tokens de l'UI
+(`src/menu/tokens.css`) : toute nouvelle UI doit lire ces variables plutôt que
+des couleurs en dur. Le design system complet (boutons, états, animations, sons)
+est dans le dossier fourni par l'utilisateur, voir STATUS.md (session Main Menu).
 
 ## Bug connu de Phaser — tile-picking isométrique
 
@@ -71,10 +71,8 @@ hypothèses :
 - 3 retards sur un contrat → contrat résilié, -15 XP
 - Seuil de passage au niveau suivant : 100 XP
 
-**Incohérence connue, non résolue** : le brief original utilise "XP" et "ISP" pour
-désigner apparemment la même grandeur à des endroits différents. Ne pas trancher côté
-agent — signaler et demander confirmation humaine avant d'implémenter le système de
-progression.
+**Tranché le 2026-09-24 par l'utilisateur : c'est "XP".** "ISP" dans le brief
+original était une erreur — ne plus l'utiliser nulle part.
 
 ## Structure des dossiers
 
@@ -87,10 +85,16 @@ public/assets/
   props/        ← poubelles de rue, décor (bancs, arbres, lampadaires, flaques)
   ui/           ← icônes économie, jauge de réputation, boutons d'action, icônes
                   d'alerte, écrans (voir STATUS.md pour les dossiers manquants/vides)
-  sound/        ← vide pour l'instant (le zip source ne contient aucun son)
+  sound/        ← musique du Main Menu (main_menu_music.mp3)
+  menu/         ← fond et logo du Main Menu (versions basse résolution, HD à venir)
 
 src/
-  main.js               ← point d'entrée, crée le Phaser.Game
+  main.js               ← point d'entrée : UNIQUEMENT le Main Menu (aucun import
+                           de Phaser). Le jeu est chargé à la demande.
+  game.js               ← crée le Phaser.Game (chargé via import() depuis le menu)
+  menu/                 ← Main Menu en DOM/CSS : MainMenu.js, SoundManager.js,
+                           gameLoader.js (pré-chargement du jeu en arrière-plan),
+                           icons.js (icônes SVG), tokens.css, menu.css
   CameraController.js    ← module caméra réutilisable (pan / zoom / inertie)
   scenes/
     MapScene.js          ← scène active par défaut : charge la vraie carte via mapLoader.js
@@ -159,8 +163,28 @@ sauvegarde locale).
 
 ## État fonctionnel actuel
 
-Caméra (pan/zoom/inertie), chargement de la carte, et **éditeur de carte en
-jeu** sont fonctionnels. Pas encore d'interaction de jeu (clic sur un bâtiment
+**Main Menu** (POC, 2026-09-24), caméra (pan/zoom/inertie), chargement de la
+carte, et **éditeur de carte en jeu** sont fonctionnels. Pas encore d'interaction de jeu (clic sur un bâtiment
 pour une action), pas d'économie, pas d'animation des sprites (ouvrier/tricycle/
 camion affichés en image statique), pas d'undo dans l'éditeur. Voir STATUS.md
 pour le détail exact et la prochaine étape.
+
+## Main Menu et chargement (depuis le 2026-09-24)
+
+- Le **Main Menu** (`src/menu/`) est la première chose affichée. C'est un overlay
+  DOM/CSS, **pas une scène Phaser**, pour s'afficher sans attendre le moteur.
+- **Ne jamais importer Phaser (ni `game.js`, `mapLoader.js`, `scenes/`…)
+  statiquement depuis `src/main.js` ou `src/menu/`** : le jeu doit rester dans
+  son propre fichier généré par Vite, chargé via `import('../game.js')`.
+- Une fois le menu affiché, `gameLoader.js` télécharge en arrière-plan le code du
+  jeu puis chaque asset de `GAME_ASSET_URLS` (cache HTTP). "Nouvelle partie"
+  démarre ensuite Phaser, qui retrouve tout en cache.
+- Son : musique `public/assets/sound/main_menu_music.mp3` en boucle + effets
+  synthétisés en Web Audio (`SoundManager.js`). Mute et volume mémorisés en
+  localStorage (`clean-ceo-muted`, `clean-ceo-volume`). L'autoplay est tenté, mais
+  les navigateurs l'autorisent rarement avant un premier geste.
+- Typo UI : **Oxanium** (Google Fonts). Pixelify Sans a été essayée puis rejetée
+  par l'utilisateur (illisible).
+- Les clés localStorage de la carte restent `net-empire-map-v2` et
+  `net-empire-custom-assets-v1` malgré le renommage : les changer ferait perdre
+  les cartes déjà éditées.

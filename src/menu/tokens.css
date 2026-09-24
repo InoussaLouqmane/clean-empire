@@ -1,0 +1,65 @@
+/*
+ * Design tokens de CLEAN CEO (design system fourni le 2026-09-24).
+ * Toute l'UI du menu lit ces variables : modifier une valeur ici suffit à
+ * la changer partout, sans éditer chaque composant.
+ * Couleurs : uniquement la palette verrouillée (voir CLAUDE.md).
+ */
+:root {
+  /* Palette brute */
+  --palette-dark: #1b1712;
+  --palette-brown-grey: #6b5a46;
+  --palette-beige: #8c7860;
+  --palette-green-dark: #4c6b3f;
+  --palette-green: #6e8f52;
+  --palette-terracotta: #9c5b3e;
+  --palette-sand: #c98f5e;
+  --palette-brown: #5b4632;
+  --palette-teal: #1f5e52;
+  --palette-gold: #c79a3b;
+  --palette-red: #a23b2a;
+  --palette-cream: #f1e9d2;
+
+  /* Rôles */
+  --color-primary: var(--palette-teal);
+  --color-secondary: var(--palette-green-dark);
+  --color-success: var(--palette-green);
+  --color-warning: var(--palette-gold);
+  --color-error: var(--palette-red);
+  --color-reward: var(--palette-gold);
+  --color-surface: var(--palette-cream);
+  --color-surface-dark: var(--palette-dark);
+  --color-text: var(--palette-dark);
+  --color-text-inverse: var(--palette-cream);
+  --color-text-muted: var(--palette-brown-grey);
+  --color-border: var(--palette-dark);
+  --color-border-accent: var(--palette-gold);
+
+  /* Boutons */
+  --button-primary-bg: var(--palette-green-dark);
+  --button-primary-bg-hover: var(--palette-green);
+  --button-secondary-bg: var(--palette-teal);
+  --button-secondary-bg-hover: var(--palette-green);
+  --button-danger-bg: var(--palette-red);
+  --button-disabled-bg: var(--palette-brown);
+  --button-disabled-text: var(--palette-beige);
+
+  /* Formes */
+  --radius-small: 3px;
+  --radius-medium: 5px;
+  --border-width: 3px;
+  --ring-width: 2px;
+
+  /* Ombres : courtes et nettes, jamais floues (pixel art) */
+  --shadow-small: 0 3px 0 0 var(--palette-dark);
+  --shadow-medium: 0 5px 0 0 var(--palette-dark);
+
+  /* Animations (design system §26) */
+  --animation-fast: 150ms;   /* hover */
+  --animation-press: 100ms;  /* clic */
+  --animation-normal: 250ms; /* transitions d'écran, modales */
+  --animation-important: 600ms; /* apparition du logo */
+  --ease-out: cubic-bezier(0.2, 0.8, 0.3, 1);
+
+  /* Typographie */
+  --font-ui: 'Oxanium', 'Trebuchet MS', system-ui, sans-serif;
+}
