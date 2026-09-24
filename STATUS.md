@@ -1282,3 +1282,15 @@ de données » est activé.
 Le rendu du fondu de boucle à l'œil ; le contraste entre la vidéo
 (1280×720, un peu plus douce) et l'image fixe HD. À remplacer par une vidéo
 dont le camion sort du cadre dès qu'elle existe (même nom de fichier suffit).
+
+---
+
+## 2026-09-24 — Fond animé retiré (en attente d'une meilleure vidéo)
+
+L'utilisateur trouve l'essai concluant mais demande de le retirer pour
+l'instant : le menu revient à l'image fixe HD seule. `animatedBackground.js`
+et `main_menu_background.mp4` restent dans le projet, non utilisés. Pour le
+rebrancher : dans `MainMenu._render()`, ajouter
+`this.animatedBg = createAnimatedBackground(this.el.querySelector('.menu-bg'))`
+et `this.animatedBg.pause()` au début de `showLoading()`. Une nouvelle vidéo
+(camion qui sort du cadre, boucle invisible) a été demandée à l'utilisateur.

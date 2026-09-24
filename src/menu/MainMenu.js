@@ -1,5 +1,4 @@
 import { icon } from './icons.js';
-import { createAnimatedBackground } from './animatedBackground.js';
 
 // Main Menu de CLEAN CEO — overlay DOM/CSS (pas Phaser), pour s'afficher
 // immédiatement sans attendre le moteur de jeu ni les assets de la carte
@@ -78,7 +77,6 @@ export class MainMenu {
     this.root.appendChild(this.el);
     this.buttons = [...this.el.querySelectorAll('.menu-btn')];
     this.soundBtn = this.el.querySelector('[data-action="sound"]');
-    this.animatedBg = createAnimatedBackground(this.el.querySelector('.menu-bg'));
   }
 
   _menuButton(action, iconName, label, { primary = false, disabled = false, tooltip = '' } = {}) {
@@ -278,7 +276,6 @@ export class MainMenu {
    * de chargement. Renvoie un objet pour piloter la barre de progression. */
   showLoading() {
     this._closeModal();
-    this.animatedBg.pause(); // plus de décodage vidéo pendant le chargement du jeu
     this.el.classList.add('is-leaving');
 
     const overlay = document.createElement('div');
