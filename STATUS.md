@@ -1255,3 +1255,30 @@ Quand la nouvelle vidéo arrive : compresser (H.264, sans audio,
 HD reste affichée tout de suite), la mettre en pause au lancement d'une
 partie, et garder l'image fixe si « réduire les animations » ou « économie
 de données » est activé.
+
+---
+
+## 2026-09-24 — Essai du fond animé (vidéo actuelle)
+
+### Fait
+
+- À la demande de l'utilisateur (« essaye déjà avec celle qui est là »), la
+  vidéo `Static_background_localized_anim…mp4` est intégrée telle quelle :
+  compressée en H.264 CRF 27, sans audio, `+faststart` →
+  `public/assets/menu/main_menu_background.mp4` (**1,6 Mo**, 1280×720).
+- `src/menu/animatedBackground.js` (nouveau) : vidéo muette en boucle posée
+  sur l'image fixe HD. Téléchargement lancé seulement après le chargement de
+  la page, affichage uniquement une fois prête (`canplaythrough`). Retirée si
+  la lecture échoue ; absente si « réduire les animations » ou « économie de
+  données » est activé.
+- **Boucle** : pour masquer le saut du camion à la reprise, fondu de 0,45 s
+  vers l'image fixe avant la fin et depuis l'image fixe au début (une seule
+  vidéo décodée). Mesuré : l'opacité descend à ~0,2 au passage de boucle.
+- Vidéo mise en pause dès « Nouvelle partie » (plus aucun décodage pendant
+  le chargement ni en jeu). 60 images/s sur le menu en headless.
+
+### À valider par l'utilisateur
+
+Le rendu du fondu de boucle à l'œil ; le contraste entre la vidéo
+(1280×720, un peu plus douce) et l'image fixe HD. À remplacer par une vidéo
+dont le camion sort du cadre dès qu'elle existe (même nom de fichier suffit).

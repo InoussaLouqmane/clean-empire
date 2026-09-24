@@ -24,6 +24,15 @@
   /* Fond HD 1920×1080 (WebP ~650 Ko) fourni par l'utilisateur le 2026-09-24. */
   image-rendering: auto;
 }
+.menu-bg__video {
+  /* fond animé (animatedBackground.js), posé sur l'image fixe HD */
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  pointer-events: none;
+}
 .menu-bg::after {
   /* voile uni très léger (pas de dégradé) pour détacher l'UI de la ville */
   content: '';
