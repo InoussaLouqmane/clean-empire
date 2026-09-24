@@ -1164,3 +1164,18 @@ collecte.
 Vrais nuages dessinés (PNG transparents, 3–5 variantes, 256–512 px, palette
 crème `#F1E9D2` / ombre `#8C7860`) → remplacer `makeCloudTexture()` par un
 chargement d'images. Puis première boucle de gameplay (collecte).
+
+---
+
+## 2026-09-24 — Nuages dessinés
+
+### Fait
+
+- L'utilisateur a fourni `Downloads/Cloud 1/2/3.png` (PNG transparents, ~2000 px
+  de large). Recadrés sur leur contenu et réduits à 512 px de large en
+  « plus proche voisin » (pixels nets) → `public/assets/decor/cloud_1..3.png`
+  (47–72 Ko chacun). Originaux laissés dans `Downloads/`.
+- `DECOR_ASSET_PATHS` (`mapLoader.js`) : chargés par Phaser et inclus dans le
+  pré-téléchargement du menu (`GAME_ASSET_URLS`). Les nuages générés en code
+  sont supprimés ; `mapDecor.js` place les vrais nuages (même logique :
+  hors de la zone jouable, ondulation lente), filtre NEAREST.

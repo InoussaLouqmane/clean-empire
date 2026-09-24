@@ -1,7 +1,7 @@
 import Phaser from 'phaser';
 import { CalibrationScene } from './scenes/CalibrationScene.js';
 import { MapScene } from './scenes/MapScene.js';
-import { ASSET_PATHS, MAP_JSON_PATH } from './mapLoader.js';
+import { ASSET_PATHS, DECOR_ASSET_PATHS, MAP_JSON_PATH } from './mapLoader.js';
 
 // Partie "jeu" (Phaser + carte + éditeur). Ce module n'est JAMAIS importé
 // statiquement par le menu (src/main.js) : il est chargé à la demande via
@@ -11,7 +11,11 @@ import { ASSET_PATHS, MAP_JSON_PATH } from './mapLoader.js';
 /** Liste des fichiers que MapScene va charger — le menu les pré-télécharge en
  * arrière-plan (cache HTTP du navigateur) pour que le loader de Phaser les
  * retrouve instantanément au clic sur "Nouvelle partie". */
-export const GAME_ASSET_URLS = [MAP_JSON_PATH, ...Object.values(ASSET_PATHS)];
+export const GAME_ASSET_URLS = [
+  MAP_JSON_PATH,
+  ...Object.values(ASSET_PATHS),
+  ...Object.values(DECOR_ASSET_PATHS),
+];
 
 /**
  * Crée le Phaser.Game dans #game-container. `onReady` est appelé une fois la

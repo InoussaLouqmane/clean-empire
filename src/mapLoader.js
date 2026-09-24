@@ -47,6 +47,14 @@ export const ASSET_PATHS = {
   vehicle_camion: 'assets/vehicles/camion_move_3frames_32x32.png',
 };
 
+// Décor hors zone (voir mapDecor.js) : nuages dessinés fournis par
+// l'utilisateur le 2026-09-24 (recadrés et réduits à 512 px de large).
+export const DECOR_ASSET_PATHS = {
+  decor_cloud_1: 'assets/decor/cloud_1.png',
+  decor_cloud_2: 'assets/decor/cloud_2.png',
+  decor_cloud_3: 'assets/decor/cloud_3.png',
+};
+
 // "Canal" (eau) n'a aucun asset réel : on réutilise le trottoir teinté avec la
 // couleur sarcelle de la palette verrouillée (#1F5E52) pour le distinguer.
 // Ce n'est pas une entrée d'ASSET_PATHS (rien à charger), juste un choix
@@ -108,7 +116,7 @@ export const LAYER_PALETTE = {
 export function preload(scene) {
   scene.load.json(MAP_JSON_KEY, MAP_JSON_PATH);
 
-  for (const [key, path] of Object.entries(ASSET_PATHS)) {
+  for (const [key, path] of Object.entries({ ...ASSET_PATHS, ...DECOR_ASSET_PATHS })) {
     scene.load.image(key, path);
   }
 

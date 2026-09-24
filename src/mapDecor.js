@@ -18,7 +18,7 @@ import {
 // Trois couches, de la plus basse à la plus haute :
 // 1. un sol d'herbe répété à l'infini, assombri (= "hors zone") ;
 // 2. une bande d'arbres autour de la zone, de plus en plus dense en s'éloignant ;
-// 3. des nuages pixel sur l'horizon, qui ondulent lentement.
+// 3. des nuages dessinés sur l'horizon, qui ondulent lentement.
 // + un liseré discret qui marque la limite de la zone jouable.
 
 const OUTSIDE_TINT = 0x9ea58c; // assombrit/désature l'herbe et les arbres hors zone
@@ -145,54 +145,13 @@ function createTreeRing(scene, grid) {
 
 // --------------------------------------------------------------- 3. nuages
 
-const CLOUD_PIXEL = 4; // taille d'un "pixel" de nuage, en px de texture
-const CLOUD_VARIANTS = 5;
-
-/** Dessine une texture de nuage pixel art (union d'ellipses sur une grille,
- * corps crème + dessous légèrement ombré). Palette verrouillée uniquement. */
-function makeCloudTexture(scene, key, rng) {
-  const cols = 40 + Math.floor(rng() * 18);
-  const rows = 22 + Math.floor(rng() * 6);
-  const blobs = [];
-  const blobCount = 4 + Math.floor(rng() * 3);
-  for (let i = 0; i < blobCount; i++) {
-    // bosses rondes, les centrales plus hautes : silhouette de cumulus
-    const t = i / Math.max(1, blobCount - 1);
-    const middle = 1 - Math.abs(t - 0.5) * 2;
-    const ry = rows * (0.26 + 0.2 * middle + rng() * 0.06);
-    const rx = Math.max(ry * 1.15, cols * (0.14 + rng() * 0.06));
-    const cx = rx + (cols - 2 * rx) * t;
-    const cy = rows - ry - 1;
-    blobs.push({ cx, cy, rx, ry });
-  }
-
-  const canvasTex = scene.textures.createCanvas(key, cols * CLOUD_PIXEL, rows * CLOUD_PIXEL);
-  const ctx = canvasTex.getContext();
-  for (let y = 0; y < rows; y++) {
-    for (let x = 0; x < cols; x++) {
-      const px = x + 0.5;
-      const py = y + 0.5;
-      const hit = blobs.find((b) => ((px - b.cx) / b.rx) ** 2 + ((py - b.cy) / b.ry) ** 2 <= 1);
-      if (!hit) continue;
-      const lower = py > hit.cy + hit.ry * 0.35;
-      ctx.fillStyle = '#F1E9D2';
-      ctx.fillRect(x * CLOUD_PIXEL, y * CLOUD_PIXEL, CLOUD_PIXEL, CLOUD_PIXEL);
-      if (lower) {
-        ctx.fillStyle = 'rgba(140, 120, 96, 0.32)'; // #8C7860 en transparence
-        ctx.fillRect(x * CLOUD_PIXEL, y * CLOUD_PIXEL, CLOUD_PIXEL, CLOUD_PIXEL);
-      }
-    }
-  }
-  canvasTex.refresh();
-  canvasTex.setFilter(Phaser.Textures.FilterMode.NEAREST);
-}
+// Nuages dessinés (voir DECOR_ASSET_PATHS dans mapLoader.js).
+const CLOUD_KEYS = ['decor_cloud_1', 'decor_cloud_2', 'decor_cloud_3'];
 
 function createClouds(scene, bounds) {
   const rng = makeRng(SEED + 1);
-  for (let i = 0; i < CLOUD_VARIANTS; i++) {
-    const key = `decor_cloud_${i}`;
-    if (!scene.textures.exists(key)) makeCloudTexture(scene, key, rng);
-  }
+  // pixel art : agrandissement sans lissage, pour garder les pixels nets
+  for (const key of CLOUD_KEYS) scene.textures.get(key).setFilter(Phaser.Textures.FilterMode.NEAREST);
 
   // Les nuages restent HORS du rectangle de la carte (+ marge) : ils habillent
   // l'horizon sans jamais masquer la zone jouable.
@@ -217,8 +176,8 @@ function createClouds(scene, bounds) {
     if (x > inner.minX && x < inner.maxX && y > inner.minY && y < inner.maxY) continue;
 
     const sprite = scene.add
-      .image(x, y, `decor_cloud_${Math.floor(rng() * CLOUD_VARIANTS)}`)
-      .setScale(1.4 + rng() * 1.6)
+      .image(x, y, CLOUD_KEYS[Math.floor(rng() * CLOUD_KEYS.length)])
+      .setScale(0.6 + rng() * 0.7)
       .setAlpha(0.82 + rng() * 0.15)
       .setFlipX(rng() < 0.5)
       .setDepth(DEPTH.CLOUDS + y); // les nuages du bas passent devant ceux du haut
