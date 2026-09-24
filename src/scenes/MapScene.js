@@ -9,8 +9,10 @@ import { EditorPanel } from '../editor/EditorPanel.js';
 import { SelectionFrame } from '../editor/SelectionFrame.js';
 import { AddAssetModal } from '../editor/AddAssetModal.js';
 
-const MIN_ZOOM = 0.3;
-const CAMERA_MARGIN = 1400; // px monde autour de la carte : forêt + nuages du décor
+// Part maximale de la carte visible d'un coup (mesurée sur la capture de
+// référence default_zoom.png : ~86 % de la largeur, ~96 % de la hauteur).
+const MAX_VIEW_FRACTION = { width: 0.86, height: 0.96 };
+const CAMERA_MARGIN = 220; // px monde au-delà du bord de la carte : forêt + lisière de nuages
 const SELECTION_FRAME_WORLD_SIZE = 56; // demi-tuile de marge autour d'une tuile 64×32
 
 // Carte du jeu, éditable en direct (voir editor/). Le premier chargement
@@ -44,24 +46,30 @@ export class MapScene extends Phaser.Scene {
       (bounds.minY + bounds.maxY) / 2
     );
 
-    // Les bornes englobent la forêt et les nuages du décor (mapDecor.js) : on
-    // peut panner jusqu'à l'horizon, jamais au-delà.
-    const boundsWidth = bounds.maxX - bounds.minX + CAMERA_MARGIN * 2;
-    const boundsHeight = bounds.maxY - bounds.minY + CAMERA_MARGIN * 2;
+    // Bornes = la carte + une petite marge : au bord, on ne voit que la forêt
+    // et le début de la mer de nuages, jamais le lointain (mapDecor.js n'a
+    // donc à habiller que cette zone — bien plus léger).
+    const mapWidth = bounds.maxX - bounds.minX;
+    const mapHeight = bounds.maxY - bounds.minY;
+    const boundsWidth = mapWidth + CAMERA_MARGIN * 2;
+    const boundsHeight = mapHeight + CAMERA_MARGIN * 2;
     this.cameras.main.setBounds(bounds.minX - CAMERA_MARGIN, bounds.minY - CAMERA_MARGIN, boundsWidth, boundsHeight);
 
     this.cameraController = new CameraController(this, {
-      minZoom: MIN_ZOOM,
+      minZoom: 1,
       maxZoom: 2.5,
     });
 
-    // Si la vue dézoomée devient plus grande que les bornes, Phaser la colle
-    // au bord haut-gauche des bornes (la carte partait dans un coin). On
-    // limite donc le dézoom pour que la vue tienne toujours dans les bornes,
-    // recalculé quand la fenêtre change de taille.
+    // Dézoom maximal fixé sur la capture de référence de l'utilisateur
+    // (Downloads/default_zoom.png, 2026-09-24) : la vue montre au plus
+    // MAX_VIEW_FRACTION de la carte, quelle que soit la taille de l'écran.
+    // Recalculé quand la fenêtre change de taille.
     const fitMinZoom = () => {
       const cam = this.cameras.main;
-      const minZoom = Math.max(MIN_ZOOM, cam.width / boundsWidth, cam.height / boundsHeight);
+      const minZoom = Math.max(
+        cam.width / (mapWidth * MAX_VIEW_FRACTION.width),
+        cam.height / (mapHeight * MAX_VIEW_FRACTION.height)
+      );
       this.cameraController.minZoom = minZoom;
       if (cam.zoom < minZoom) cam.setZoom(minZoom);
     };

@@ -24,8 +24,8 @@ import {
 // + un liseré discret qui marque la limite de la zone jouable.
 
 const OUTSIDE_TINT = 0x9ea58c; // assombrit/désature l'herbe et les arbres hors zone
-const OUTSIDE_EXTENT = 7000; // px monde couverts autour de la carte (couvre le zoom ×0.3)
-const TREE_RING = 10; // largeur (en cases) de la bande d'arbres (au-delà : mer de nuages)
+const OUTSIDE_EXTENT = 1500; // px monde couverts autour de la carte (la caméra en montre ~220 max)
+const TREE_RING = 9; // largeur (en cases) de la bande d'arbres (au-delà : mer de nuages)
 const SEED = 20260924;
 
 /** Petit générateur pseudo-aléatoire à graine (mulberry32) : décor stable. */
@@ -155,11 +155,14 @@ const CLOUD_LIGHTEN = 0.35;
 // (TREE_RING) s'y enfonce et disparaît dans la brume.
 const SEA_EDGE = 8;
 const EDGE_CLOUDS = 110; // nuages serrés le long de la lisière (bord moelleux)
-const FIELD_CLOUDS = 460; // nuages répartis sur toute la mer (relief)
+const FIELD_CLOUDS = 120; // nuages répartis sur la mer visible (relief)
 // Le fond de la mer est éclairci vers le crème par rapport à la couleur
 // moyenne des nuages : à la couleur moyenne pure, il faisait "sable".
 const SEA_BASE_LIGHTEN = 0.45;
-const CAMERA_REACH = 1700; // px au-delà de la carte que la caméra peut montrer
+// px au-delà de la carte où placer des nuages : la caméra ne montre que ~220 px
+// au-delà du bord (voir CAMERA_MARGIN dans MapScene.js), inutile d'aller plus loin
+// — le dézoom est limité depuis le 2026-09-24, ce qui allège beaucoup le rendu.
+const CAMERA_REACH = 500;
 
 /** Version éclaircie d'une texture de nuage (canvas, fichier d'origine intact).
  * Renvoie aussi sa couleur moyenne, utilisée pour le fond de la mer. */

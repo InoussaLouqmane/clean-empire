@@ -20,7 +20,7 @@
 .menu-bg {
   position: absolute;
   inset: 0;
-  background: var(--palette-dark) url('/assets/menu/main_menu_background.png') center / cover no-repeat;
+  background: var(--palette-dark) url('/assets/menu/main_menu_background_v2.png') center / cover no-repeat;
   /* Fond fourni en 564×317 (agrandi ~3,4×) : lissage standard, le mode
      "pixelated" rendait l'image trop pixelisée (retour utilisateur du
      2026-09-24). À remplacer par la version HD dès qu'elle est disponible. */

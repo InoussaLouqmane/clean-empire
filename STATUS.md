@@ -1203,3 +1203,23 @@ l'impression d'une ville-île au-dessus des nuages.
 - Bug évité : la profondeur des nuages vaut `CLOUDS + y` (y négatif en haut)
   → le fond est placé à `CLOUDS - 50000` pour rester sous tous les nuages.
 - ~60 images/s mesurées en headless avec ~600 nuages ; aucune erreur.
+
+---
+
+## 2026-09-24 — Dézoom limité + allègement du décor + nouveau fond de menu
+
+### Fait
+
+- **Dézoom maximal** calé sur la capture de référence de l'utilisateur
+  (`Downloads/default_zoom.png`) : la vue montre au plus ~86 % de la largeur
+  et ~96 % de la hauteur de la carte (`MAX_VIEW_FRACTION` dans
+  `MapScene.js`), recalculé selon la taille de l'écran. Bornes de la caméra
+  réduites à la carte + 220 px (`CAMERA_MARGIN`) : on ne voit jamais que la
+  forêt et le début de la mer de nuages.
+- **Décor allégé** (le PC de l'utilisateur ramait) : nuages de relief 460 →
+  120 et placés uniquement dans la zone visible, sol hors zone 7000 → 1500 px,
+  bande d'arbres 10 → 9 cases. Toujours 60 images/s en headless.
+- **Fond du menu** remplacé par `Downloads/quality_background_image.png`
+  (plus net) → `public/assets/menu/main_menu_background_v2.png` (l'ancien
+  fichier est conservé). **Attention : toujours 564×317 px**, comme
+  l'ancien — pour un vrai gain, il faut une version ≥ 1920×1080.
