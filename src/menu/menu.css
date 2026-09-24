@@ -645,3 +645,50 @@
     width: min(100%, 340px);
   }
 }
+
+/* ------------------------------------------ pop-up « tourne ton téléphone » */
+
+.rotate-hint {
+  z-index: 30;
+}
+.rotate-hint__body {
+  display: grid;
+  justify-items: center;
+  gap: 12px;
+  text-align: center;
+  padding-bottom: 12px;
+}
+.rotate-hint__body p {
+  margin: 0;
+}
+.rotate-hint__phone {
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 76px;
+  margin: 10px 0 4px;
+  border: 4px solid var(--palette-dark);
+  border-radius: 7px;
+  background: var(--color-primary);
+  box-shadow: inset 0 0 0 2px var(--color-border-accent);
+  animation: rotate-phone 2000ms var(--ease-out) infinite;
+}
+.rotate-hint__phone span {
+  width: 12px;
+  height: 4px;
+  margin-top: 56px;
+  background: var(--palette-cream);
+}
+@keyframes rotate-phone {
+  0%,
+  20% {
+    rotate: 0deg;
+  }
+  55%,
+  90% {
+    rotate: -90deg;
+  }
+  100% {
+    rotate: 0deg;
+  }
+}

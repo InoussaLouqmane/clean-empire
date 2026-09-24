@@ -4,6 +4,7 @@ import { MainMenu } from './menu/MainMenu.js';
 import { SoundManager } from './menu/SoundManager.js';
 import { preloadGame, preloadGameWhenMenuIsReady, onPreloadProgress } from './menu/gameLoader.js';
 import { hasSave } from './game/save.js';
+import { needsRotateHint, showRotateHint } from './menu/rotateHint.js';
 
 // Point d'entrée : UNIQUEMENT le menu. Aucun import de Phaser ici — le jeu
 // (src/game.js) est chargé à la demande, voir menu/gameLoader.js.
@@ -16,6 +17,9 @@ let starting = false;
 async function launch(mode) {
   if (starting) return;
   starting = true;
+
+  // Mobile en portrait : inviter à passer en paysage avant de continuer.
+  if (needsRotateHint()) await showRotateHint(menu.el, { onClick: () => sound.playClick() });
 
   sound.fadeOutMusic();
   const loading = menu.showLoading();

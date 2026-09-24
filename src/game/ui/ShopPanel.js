@@ -1,18 +1,14 @@
 import { icon } from '../../menu/icons.js';
-import { ECONOMY, formatMoney } from '../economy.js';
+import { ECONOMY, VEHICLE_TYPES, formatMoney } from '../economy.js';
 import { bus } from '../events.js';
 import { sfx } from '../sfx.js';
-
-// Première frame des planches de sprites (3 frames côte à côte).
-const VEHICLE_SPRITES = {
-  tricycle: 'assets/vehicles/tricycle_move_3frames_32x32.png',
-  camion: 'assets/vehicles/camion_move_3frames_32x32.png',
-};
+import { unitIcon, conditionGauge, STATUS_LABELS } from './units.js';
 
 /**
- * Boutique : recruter un ouvrier, acheter un engin. L'achat d'un ouvrier et
- * celui d'un engin ont chacun leur propre retour (design system §21–23).
- * Un article indisponible affiche toujours POURQUOI (prix manquant, niveau).
+ * Boutique : recruter un ouvrier à pied, acheter un engin (unité « tout
+ * compris », conducteur inclus), réparer un engin en panne. Chaque action a
+ * son propre retour (design system §21–24). Un article indisponible affiche
+ * toujours POURQUOI.
  */
 export class ShopPanel {
   constructor(root, state) {
@@ -31,44 +27,49 @@ export class ShopPanel {
         <button type="button" class="shop__close" aria-label="Fermer la boutique">×</button>
       </header>
       <p class="shop__money">Ton argent : <b data-shop="money"></b></p>
+      <p class="shop__section">Recruter</p>
       <ul class="shop__items">
-        <li class="shop-item" data-item="worker">
-          <span class="shop-item__icon">${icon('worker')}</span>
+        <li class="shop-item" data-item="walker">
+          ${unitIcon('walker')}
           <span class="shop-item__text">
-            <b>Recruter un ouvrier</b>
-            <small>+1 collecte en même temps</small>
+            <b>Ouvrier à pied</b>
+            <small>+1 unité · collecte en ${ECONOMY.clients.building_restaurant.durationS} s</small>
           </span>
-          <button type="button" class="game-btn game-btn--primary" data-buy="worker">
-            <span class="game-btn__label" data-price="worker"></span>
+          <button type="button" class="game-btn game-btn--primary" data-buy="walker">
+            <span class="game-btn__label" data-price="walker"></span>
           </button>
         </li>
-        ${Object.entries(ECONOMY.vehicles)
-          .map(
-            ([id, v]) => `
-        <li class="shop-item" data-item="${id}">
-          <span class="shop-item__icon shop-item__icon--sprite" style="background-image:url(${VEHICLE_SPRITES[id]})"></span>
+        ${VEHICLE_TYPES.map((type) => {
+          const v = ECONOMY.units[type];
+          return `
+        <li class="shop-item" data-item="${type}">
+          ${unitIcon(type)}
           <span class="shop-item__text">
-            <b>${v.label}</b>
-            <small>Collecte −${v.speedupS} s</small>
+            <b>${v.label} <small>(conducteur inclus)</small></b>
+            <small>Collecte −${v.speedupS} s · carburant ${v.fuel} FCFA</small>
           </span>
-          <button type="button" class="game-btn game-btn--secondary" data-buy="${id}">
-            <span class="game-btn__label">${formatMoney(v.cost)}</span>
+          <button type="button" class="game-btn game-btn--secondary" data-buy="${type}">
+            <span class="game-btn__label"></span>
           </button>
-        </li>`
-          )
-          .join('')}
-      </ul>`;
+        </li>`;
+        }).join('')}
+      </ul>
+      <div data-shop="fleet"></div>`;
     root.appendChild(this.el);
 
-    this.el.querySelector('.shop__close').addEventListener('click', () => {
-      sfx.close();
-      this.close();
-    });
     this.el.addEventListener('click', (e) => {
-      const btn = e.target.closest('[data-buy]');
-      if (btn) this._buy(btn.dataset.buy, btn);
+      if (e.target.closest('.shop__close')) {
+        sfx.close();
+        this.close();
+        return;
+      }
+      const buy = e.target.closest('[data-buy]');
+      if (buy) this._act(buy, () => (buy.dataset.buy === 'walker' ? this.state.hireWorker() : this.state.buyVehicle(buy.dataset.buy)));
+      const repair = e.target.closest('[data-repair]');
+      if (repair) this._act(repair, () => this.state.repairUnit(repair.dataset.repair), 'repair');
     });
-    this._off = bus.on('state_changed', () => this.render());
+    this._off = bus.on('state_changed', () => this.isOpen && this.render());
+    this._timer = setInterval(() => this.isOpen && this.render(), 1000);
   }
 
   open() {
@@ -97,54 +98,89 @@ export class ShopPanel {
 
   /** Bouton « Recruter » (pour la pulsation du tutoriel). */
   get recruitButton() {
-    return this.el.querySelector('[data-buy="worker"]');
+    return this.el.querySelector('[data-buy="walker"]');
   }
 
   render() {
     const s = this.state;
     this.el.querySelector('[data-shop="money"]').textContent = formatMoney(s.money);
 
-    const workerBtn = this.recruitButton;
-    const cost = s.nextWorkerCost;
-    this.el.querySelector('[data-price="worker"]').textContent = formatMoney(cost);
-    const workerBlocked = s.money < cost;
-    workerBtn.setAttribute('aria-disabled', String(workerBlocked));
-    workerBtn.title = workerBlocked ? "Pas assez d'argent" : '';
+    const walkerBtn = this.recruitButton;
+    const cost = s.nextWalkerCost;
+    this.el.querySelector('[data-price="walker"]').textContent = formatMoney(cost);
+    walkerBtn.setAttribute('aria-disabled', String(s.money < cost));
+    walkerBtn.title = s.money < cost ? "Pas assez d'argent" : '';
 
-    for (const id of Object.keys(ECONOMY.vehicles)) {
-      const btn = this.el.querySelector(`[data-buy="${id}"]`);
-      const item = this.el.querySelector(`[data-item="${id}"]`);
-      const blocker = s.vehicleBlocker(id);
+    for (const type of VEHICLE_TYPES) {
+      const v = ECONOMY.units[type];
+      const btn = this.el.querySelector(`[data-buy="${type}"]`);
+      const blocker = s.vehicleBlocker(type);
+      const locked = v.unlockLevel > s.level;
       btn.setAttribute('aria-disabled', String(Boolean(blocker)));
       btn.title = blocker ?? '';
-      const locked = ECONOMY.vehicles[id].unlockLevel > s.level;
-      item.classList.toggle('is-locked', locked);
-      item.classList.toggle('is-owned', Boolean(s.vehicles[id]));
-      const label = btn.querySelector('.game-btn__label');
-      if (s.vehicles[id]) label.textContent = 'Acheté ✓';
-      else if (locked) label.innerHTML = `${icon('lock')} Niveau ${ECONOMY.vehicles[id].unlockLevel}`;
-      else label.textContent = formatMoney(ECONOMY.vehicles[id].cost);
+      this.el.querySelector(`[data-item="${type}"]`).classList.toggle('is-locked', locked);
+      btn.querySelector('.game-btn__label').innerHTML = locked ? `${icon('lock')} Niveau ${v.unlockLevel}` : formatMoney(v.cost);
     }
+
+    // Tes engins : jauge « État » + réparation.
+    const vehicles = s.units.filter((u) => u.type !== 'walker');
+    const fleet = this.el.querySelector('[data-shop="fleet"]');
+    if (!vehicles.length) {
+      fleet.innerHTML = '';
+      return;
+    }
+    const now = Date.now();
+    fleet.innerHTML = `
+      <p class="shop__section">Tes engins</p>
+      <ul class="shop__items">
+        ${vehicles
+          .map((u) => {
+            const status = s.unitStatus(u, now);
+            const spec = ECONOMY.units[u.type];
+            const left = spec.maxUses - u.uses;
+            let action;
+            if (status === 'broken') {
+              const rb = s.repairBlocker(u.id, now);
+              action = `<button type="button" class="game-btn game-btn--danger" data-repair="${u.id}" aria-disabled="${Boolean(rb)}" title="${rb ?? ''}">
+                <span class="game-btn__label">Réparer · ${formatMoney(spec.repairCost)}</span></button>`;
+            } else if (status === 'repairing') {
+              action = `<span class="unit-row__status is-repairing">Prêt dans ${s.repairLeftS(u, now)} s</span>`;
+            } else {
+              action = `<span class="unit-row__status is-${status}">${STATUS_LABELS[status]}</span>`;
+            }
+            return `
+          <li class="shop-item shop-item--fleet">
+            ${unitIcon(u.type)}
+            <span class="shop-item__text">
+              <b>${s.unitLabel(u)}</b>
+              <small>État ${conditionGauge(s.unitCondition(u))} ${status === 'broken' ? 'hors service' : `${left} collecte${left > 1 ? 's' : ''} avant panne`}</small>
+            </span>
+            ${action}
+          </li>`;
+          })
+          .join('')}
+      </ul>`;
   }
 
-  _buy(id, btn) {
-    const ok = id === 'worker' ? this.state.hireWorker() : this.state.buyVehicle(id);
-    if (ok) {
-      if (id === 'worker') sfx.hire();
-      else sfx.buy();
-      const item = btn.closest('.shop-item');
-      item.classList.remove('is-bought');
-      void item.offsetWidth;
-      item.classList.add('is-bought');
-    } else {
+  _act(btn, fn, kind) {
+    if (btn.getAttribute('aria-disabled') === 'true' || !fn()) {
       sfx.denied();
       btn.classList.remove('is-denied');
       void btn.offsetWidth;
       btn.classList.add('is-denied');
+      return;
     }
+    if (kind === 'repair') sfx.buy();
+    else if (btn.dataset.buy === 'walker') sfx.hire();
+    else sfx.buy();
+    const item = btn.closest('.shop-item');
+    item?.classList.remove('is-bought');
+    void item?.offsetWidth;
+    item?.classList.add('is-bought');
   }
 
   destroy() {
+    clearInterval(this._timer);
     this._off();
     this.el.remove();
   }

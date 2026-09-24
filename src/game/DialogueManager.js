@@ -4,35 +4,54 @@ const RECHECK_MS = 300;
 
 /**
  * Pilote la boîte de dialogue au rythme du jeu (guide technique §4).
- * - `say(lines)` : enchaîne des répliques, résout quand la dernière est
- *   fermée par NEXT.
+ * - `say(group)` : enchaîne les répliques d'un groupe du script
+ *   ({ mode, focus, lines }). En format 'full', la caméra zoome d'abord vers
+ *   la cible du groupe (`focus`), puis revient à la vue d'avant à la fin
+ *   (zoom / dézoom — refonte niveau 1). En 'light' : ni zoom ni assombrissement.
  * - `waitUntil(cond)` : cache la boîte (Karim reste discret dans le coin) et
  *   attend qu'une condition de jeu devienne vraie — revérifiée à chaque
- *   événement du bus (et toutes les 300 ms pour les minuteries). C'est ce qui
- *   permet « la boîte disparaît pendant que le joueur agit, puis réapparaît ».
+ *   événement du bus (et toutes les 300 ms pour les minuteries).
  *
  * La condition est un état (« ce bâtiment a été collecté »), pas un
- * événement : si le joueur agit plus vite que le dialogue (il clique sur
- * Collecter avant de fermer la bulle), rien n'est manqué.
+ * événement : si le joueur agit plus vite que le dialogue, rien n'est manqué.
  */
 export class DialogueManager {
-  constructor(box, state) {
+  /**
+   * @param {object} camera  { focus(target) -> Promise<restore()> } fourni par GameController
+   */
+  constructor(box, state, camera) {
     this.box = box;
     this.state = state;
+    this.camera = camera;
     this.cancelled = false;
   }
 
   _resolveLine(line) {
-    const name = this.state.playerName || 'Toi';
+    const name = this.state.playerName || 'Ange';
     const text = line.text.replaceAll('{PRENOM}', name);
     const isKarim = line.speaker === 'karim';
     return { ...line, text, isKarim, speaker: isKarim ? 'Karim' : name };
   }
 
-  async say(lines) {
-    for (const line of lines) {
+  /**
+   * @param {{ mode?: 'full'|'light', focus?: string, lines: object[] }} group
+   * @param {{ restoreCamera?: boolean }} options
+   */
+  async say(group, { restoreCamera = true } = {}) {
+    const mode = group.mode ?? 'light';
+    this.box.setMode(mode);
+    let restore = null;
+    if (mode === 'full' && group.focus && this.camera) {
+      this.box.hide({ withKarim: false });
+      restore = await this.camera.focus(group.focus);
+    }
+    for (const line of group.lines) {
       if (this.cancelled) return;
       await this.box.say(this._resolveLine(line));
+    }
+    if (restore && restoreCamera) {
+      this.box.hide({ withKarim: true });
+      await restore();
     }
   }
 

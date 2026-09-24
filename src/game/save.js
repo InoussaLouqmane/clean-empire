@@ -6,7 +6,9 @@
 // que pour la carte en 2026-09-23) : une vieille sauvegarde est alors ignorée
 // au lieu de planter.
 
-export const SAVE_KEY = 'clean-ceo-save-v1';
+// v2 (2026-09-24) : unités de collecte (ouvriers + engins) au lieu d'un
+// simple nombre d'ouvriers — les sauvegardes v1 sont ignorées.
+export const SAVE_KEY = 'clean-ceo-save-v2';
 
 export function loadSave() {
   try {

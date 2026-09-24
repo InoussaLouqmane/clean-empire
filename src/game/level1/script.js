@@ -120,3 +120,24 @@ export const CONTRACTS = [
 // Maison de Karim (immeuble de quartier voisin du premier restaurant) : la
 // caméra s'y centre pendant les retrouvailles.
 export const KARIM_HOUSE = { col: 16, row: 16 };
+
+// Mise en scène de chaque groupe de répliques (refonte niveau 1) :
+// - 'full'  : grande boîte + écran assombri + zoom caméra vers `focus`, pour
+//             les moments clés et la PREMIÈRE explication d'une mécanique ;
+// - 'light' : boîte compacte, sans assombrissement ni zoom, pour les
+//             répliques courtes et répétitives (garder le rythme).
+// `focus` : id de bâtiment, 'karim_house' ou 'city'.
+export const SCRIPT = {
+  intro: { mode: 'full', focus: 'karim_house', lines: LINES.intro },
+  consigne1: { mode: 'full', focus: 'resto_1', lines: LINES.consigne1 },
+  consigne2: { mode: 'light', lines: LINES.consigne2 },
+  feedback1: { mode: 'full', focus: 'resto_1', lines: LINES.feedback1 },
+  consigne3: { mode: 'light', lines: LINES.consigne3 },
+  consigne4: { mode: 'full', lines: LINES.consigne4 },
+  consigne5: { mode: 'full', lines: LINES.consigne5 },
+  consigne5Relance: { mode: 'light', lines: LINES.consigne5 },
+  consigne5PasAssez: { mode: 'light', lines: LINES.consigne5PasAssez },
+  feedback2: { mode: 'light', lines: LINES.feedback2 },
+  consigne6: { mode: 'full', lines: LINES.consigne6 },
+  cloture: { mode: 'full', focus: 'city', lines: LINES.cloture },
+};

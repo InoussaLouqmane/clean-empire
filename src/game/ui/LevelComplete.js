@@ -20,7 +20,7 @@ export function showLevelComplete(root, state, { onContinue }) {
       <ul class="level-complete__stats">
         <li>${icon('coin')}<span>Argent</span><b>${formatMoney(state.money)}</b></li>
         <li>${icon('star')}<span>XP</span><b>${state.xp}</b></li>
-        <li>${icon('worker')}<span>Ouvriers</span><b>${state.workersTotal}</b></li>
+        <li>${icon('worker')}<span>Unités de collecte</span><b>${state.units.length}</b></li>
       </ul>
       <p class="level-complete__next">Niveau 2 « À son compte » — à suivre…</p>
       <div class="level-complete__actions">

@@ -214,5 +214,14 @@ pour le détail exact et la prochaine étape.
 - UI en jeu = DOM (`src/game/ui/`, styles `game-ui.css`, tokens partagés).
 - `?edit` = éditeur de carte (équipe) ; sans paramètre = jeu. `?debug` expose
   `window.__CLEAN_CEO__` pour les tests automatisés.
-- Sauvegarde : localStorage `clean-ceo-save-v1` (changer la clé si le format
+- Sauvegarde : localStorage `clean-ceo-save-v2` (changer la clé si le format
   change de façon incompatible).
+- **Unités de collecte** (depuis la refonte du 2026-09-24) : `GameState.units`
+  (ouvrier à pied ou engin tout compris), statut dérivé, usure/panne/
+  réparation, carburant déduit du gain — chiffres dans `economy.js`.
+- Tous les bâtiments sont cliquables (`buildingRegistry.js` = noms et
+  clients). Les clics Phaser sur un bâtiment ne comptent que si leur cible
+  DOM est le canvas (sinon un clic sur l'UI au-dessus « traverse »).
+- Dialogue : groupes `SCRIPT` avec `mode` ('full' | 'light') et `focus` ;
+  portraits `public/assets/characters/karim_<expression>.png` et
+  `joueur_<expression>.png` (repli automatique si absents).

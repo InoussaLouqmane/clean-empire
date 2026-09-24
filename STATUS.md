@@ -1387,3 +1387,63 @@ attendant les vrais, « Reprendre partie » actif, éditeur caché derrière
 
 Session de test par l'utilisateur sur le site en ligne, retours, puis
 polish (vrais sons, portraits) et conception du niveau 2 « À son compte ».
+
+---
+
+## 2026-09-24 — Refonte UI/UX niveau 1 + système d'unités de collecte
+
+### Contexte
+
+Retours de test de l'utilisateur : `Downloads/clean-ceo-prompt-refonte-niveau1.md`
+(6 points priorisés). Décisions prises avec l'utilisateur : engins « tout
+compris » (tricycle 5 000 / camion 50 000, conducteur inclus, chaque unité
+part indépendamment) ; carburant 50 / 150 FCFA déduit du gain ; réparation
+500 FCFA / 20 s (tricycle), 1 000 FCFA / 30 s (camion), jauge « État » sur
+10 utilisations ; tous les bâtiments ont un nom et une fiche (verrouillée
+s'il n'y a pas de contrat : gain, XP, durée) ; saisie du prénom inchangée
+mais fermable (✕), prénom par défaut **« Ange »**.
+
+### Fait
+
+1. **Dialogue** : boîte toujours centrée, deux formats par groupe de
+   répliques (`SCRIPT` dans `level1/script.js`) — `full` (grande, écran
+   assombri, zoom caméra vers la cible puis dézoom) pour les moments clés et
+   premières explications ; `light` (compacte, sans zoom) pour les
+   répliques courtes. Karim à droite, joueur à gauche (initiale du prénom en
+   attendant `joueur_<expression>.png`). Portraits par expression chargés
+   automatiquement (`karim_<expression>.png`, repli sur l'image actuelle).
+   La cible caméra est cadrée dans le tiers haut pour ne pas être cachée.
+2. **Bâtiments** : tous cliquables (`buildingRegistry.js` : 43 bâtiments
+   nommés), clic au pixel près (`pixelPerfect`) ; fiches « contrat »,
+   « pas encore de contrat » (verrouillée) ou « info » (déchetterie, QG) ;
+   indicateur permanent au-dessus des bâtiments SOUS CONTRAT seulement
+   (« ! » prêt / anneau + secondes en collecte / secondes avant recollecte) ;
+   doigt pixel (placeholder) + spotlight pendant le guidage (`ui/Guide.js`).
+3. **Unités** (`GameState.units`) : ouvrier à pied ou engin, statut
+   disponible / en collecte / en panne / en réparation ; choix EXPLICITE dans
+   la fiche (durée et gain net par unité ; présélection s'il n'y en a
+   qu'une) ; usure, panne, réparation ; carburant déduit et affiché dans le
+   gain flottant.
+4. **HUD** : pastille par engin (jauge « État » + statut en texte), clic =
+   boutique ; boutique avec section « Tes engins » (jauge + Réparer).
+5. **Mobile portrait** : pop-up « Tourne ton téléphone » (animation,
+   Continuer, fermeture automatique en paysage).
+6. **Prénom** : croix ✕, vide accepté → « Ange ».
+- Sauvegarde passée en `clean-ceo-save-v2` (anciennes parties ignorées).
+- **Bug corrigé** : Phaser recevait aussi les clics faits sur l'UI DOM
+  au-dessus du canvas → cliquer « Collecter » re-cliquait le bâtiment
+  dessous et reconstruisait la fiche (collecte impossible). Les clics de
+  bâtiment ne comptent plus que s'ils visent le canvas.
+- Vérifié en headless : niveau complet (82 s), reprise, achat tricycle,
+  collecte (+450 = 500 − 50), panne à 10 utilisations, réparation (−500,
+  20 s, état remis à neuf), fiche verrouillée d'un hôpital, pop-up mobile.
+  Aucune erreur console.
+
+### À valider par l'utilisateur
+
+Ressenti des zooms caméra et du spotlight, lisibilité des bulles centrées,
+vitesse du doigt ; sons toujours synthétisés.
+
+### Hors scope (backlog niveau 2)
+
+Boucle de mécontentement (retards, seuils, pénalités).
