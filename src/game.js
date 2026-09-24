@@ -10,7 +10,8 @@ import { ASSET_PATHS, DECOR_ASSET_PATHS, MAP_JSON_PATH } from './mapLoader.js';
 
 /** Liste des fichiers que MapScene va charger — le menu les pré-télécharge en
  * arrière-plan (cache HTTP du navigateur) pour que le loader de Phaser les
- * retrouve instantanément au clic sur "Nouvelle partie". */
+ * retrouve instantanément au clic sur "Nouvelle partie" (MAP_JSON_PATH = la
+ * carte par défaut). */
 export const GAME_ASSET_URLS = [
   MAP_JSON_PATH,
   ...Object.values(ASSET_PATHS),

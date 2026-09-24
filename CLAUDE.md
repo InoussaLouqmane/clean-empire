@@ -123,11 +123,13 @@ pas réintroduire de logique Tiled ailleurs que dans `convertTiledToGrid()`.
 
 - Fichier source Tiled (historique, converti une seule fois) :
   `public/maps/net-empire.tmj`, export JSON isométrique 64×32, 40×30 tuiles.
-- `convertTiledToGrid()` (dans `mapData.js`) ne s'exécute que tant qu'aucune
-  carte éditée n'est sauvegardée en local (`localStorage`, clé
-  `net-empire-map-v1`). Une fois l'utilisateur a édité quoi que ce soit via le
-  mode édition, cette conversion n'est plus jamais relue — sauf clic exprès sur
-  "Revenir à la carte importée de Tiled" dans le panneau d'édition.
+- **Depuis le 2026-09-24 : la carte par défaut est `public/maps/default-map.json`**
+  (export de l'éditeur fourni par l'utilisateur), chargée à **chaque**
+  lancement. Le `.tmj` n'est plus chargé et `convertTiledToGrid()` n'est plus
+  appelée (gardée comme trace). La carte n'est plus sauvegardée dans le
+  navigateur : les éditions tiennent le temps de la session (registre Phaser,
+  survit à `scene.restart()`). Pour changer la carte par défaut : "Exporter la
+  carte" dans l'éditeur, puis remplacer `default-map.json` par l'export.
 - Le `.tmj` référence un tileset externe (`net_empire_demo.tsx`) dont les images
   n'existent pas dans ce projet (placeholders générés ailleurs) — sans
   conséquence puisqu'on ne charge jamais ce tileset, seulement la grille brute
@@ -157,16 +159,15 @@ peinture est dans `src/editor/MapEditor.js` ; pendant l'édition, le pan de
 `CameraController` est désactivé (`camera.enabled = false`) pour ne pas
 interférer avec le glissé de peinture — le zoom molette reste actif.
 
-Pas d'undo pour l'instant : une erreur se corrige en repeignant par-dessus, ou
-en repartant de zéro via "Revenir à la carte importée de Tiled" (efface la
-sauvegarde locale).
+Annuler/rétablir (Ctrl+Z / Ctrl+Y) disponibles. "Revenir à la carte par défaut"
+annule toutes les modifications de la session.
 
 ## État fonctionnel actuel
 
 **Main Menu** (POC, 2026-09-24), caméra (pan/zoom/inertie), chargement de la
 carte, et **éditeur de carte en jeu** sont fonctionnels. Pas encore d'interaction de jeu (clic sur un bâtiment
 pour une action), pas d'économie, pas d'animation des sprites (ouvrier/tricycle/
-camion affichés en image statique), pas d'undo dans l'éditeur. Voir STATUS.md
+camion affichés en image statique). Voir STATUS.md
 pour le détail exact et la prochaine étape.
 
 ## Main Menu et chargement (depuis le 2026-09-24)
@@ -185,9 +186,9 @@ pour le détail exact et la prochaine étape.
   les navigateurs l'autorisent rarement avant un premier geste.
 - Typo UI : **Oxanium** (Google Fonts). Pixelify Sans a été essayée puis rejetée
   par l'utilisateur (illisible).
-- Les clés localStorage de la carte restent `net-empire-map-v2` et
-  `net-empire-custom-assets-v1` malgré le renommage : les changer ferait perdre
-  les cartes déjà éditées.
+- La clé localStorage des assets personnalisés reste
+  `net-empire-custom-assets-v1` malgré le renommage (la changer ferait perdre
+  les assets ajoutés). L'ancienne clé de carte `net-empire-map-v2` n'est plus lue.
 
 ## Rendu de la carte (depuis le 2026-09-24)
 

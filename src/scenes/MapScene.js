@@ -13,7 +13,10 @@ import { AddAssetModal } from '../editor/AddAssetModal.js';
 // référence default_zoom.png : ~86 % de la largeur, ~96 % de la hauteur).
 const MAX_VIEW_FRACTION = { width: 0.86, height: 0.96 };
 const CAMERA_MARGIN = 220; // px monde au-delà du bord de la carte : forêt + lisière de nuages
-const SELECTION_FRAME_WORLD_SIZE = 56; // demi-tuile de marge autour d'une tuile 64×32
+const SELECTION_FRAME_WORLD_SIZE = 56;
+// Carte en cours d'édition, gardée le temps de la session (registre du jeu :
+// survit à scene.restart(), pas à un rechargement de la page).
+const SESSION_GRID_KEY = 'sessionGrid'; // demi-tuile de marge autour d'une tuile 64×32
 
 // Carte du jeu, éditable en direct (voir editor/). Le premier chargement
 // convertit l'export Tiled (net-empire.tmj) vers notre propre format de grille
@@ -30,8 +33,13 @@ export class MapScene extends Phaser.Scene {
   }
 
   create() {
-    const tiledJson = mapLoader.getRawTiledJson(this);
-    const grid = mapData.loadSavedGrid() ?? mapData.convertTiledToGrid(tiledJson);
+    // À chaque lancement : la carte par défaut (public/maps/default-map.json).
+    // Les éditions ne sont plus relues depuis le navigateur au chargement — sinon
+    // une vieille sauvegarde reprenait le dessus. Seule exception : un import
+    // JSON ou une édition dans la même session (scene.restart()).
+    const grid =
+      this.registry.get(SESSION_GRID_KEY) ??
+      mapData.parseGridFile(JSON.stringify(mapLoader.getDefaultMapJson(this))).grid;
 
     const spriteGrid = mapLoader.createSpriteGrid(grid.width, grid.height);
     mapLoader.buildFromGrid(this, spriteGrid, grid);
@@ -80,7 +88,7 @@ export class MapScene extends Phaser.Scene {
     this.mapEditor = new MapEditor(this, {
       grid,
       spriteGrid,
-      onChange: () => mapData.saveGrid(grid),
+      onChange: () => this.registry.set(SESSION_GRID_KEY, grid),
       onOrientationChange: (flipX, flipY) => this.editorPanel?.setOrientationPreview(flipX, flipY),
       onToolChange: (tool, brushKey) => this.editorPanel?.setActiveTool(tool, brushKey),
     });
@@ -94,7 +102,7 @@ export class MapScene extends Phaser.Scene {
       onSubmit: (fields) => this._addCustomAsset(fields),
     });
 
-    // scene.restart() (bouton "Revenir à la carte importée de Tiled") relance
+    // scene.restart() (bouton "Revenir à la carte par défaut", import) relance
     // create() sans détruire les éléments DOM des panneaux précédents ni
     // retirer l'écouteur clavier de l'éditeur précédent — il faut les nettoyer
     // explicitement, sinon boutons dupliqués et raccourcis clavier en double.
@@ -118,7 +126,7 @@ export class MapScene extends Phaser.Scene {
       onResetToGrass: () => this.mapEditor.resetToGrassOnly(),
       onOpenAddAsset: () => this.addAssetModal.open(),
       onClearSaved: () => {
-        mapData.clearSavedGrid();
+        this.registry.remove(SESSION_GRID_KEY);
         this.scene.restart();
       },
     });
@@ -156,9 +164,9 @@ export class MapScene extends Phaser.Scene {
   }
 
   /** Lit et valide un fichier JSON exporté (ou modifié à la main), fusionne
-   * les assets personnalisés qu'il embarque dans le registre local, sauvegarde
-   * la carte et relance la scène pour repartir dessus proprement — même
-   * mécanisme que "Revenir à la carte importée de Tiled", pour ne pas avoir à
+   * les assets personnalisés qu'il embarque dans le registre local, garde la
+   * carte pour la session et relance la scène pour repartir dessus proprement
+   * — même mécanisme que "Revenir à la carte par défaut", pour ne pas avoir à
    * gérer un changement de dimensions de grille en direct. */
   _importMapFromFile(file) {
     const reader = new FileReader();
@@ -166,7 +174,7 @@ export class MapScene extends Phaser.Scene {
       try {
         const { grid, customAssets: importedCustomAssets } = mapData.parseGridFile(reader.result);
         customAssets.mergeCustomAssets(importedCustomAssets);
-        mapData.saveGrid(grid);
+        this.registry.set(SESSION_GRID_KEY, grid);
         this.scene.restart();
       } catch (err) {
         window.alert(`Import impossible : ${err.message}`);

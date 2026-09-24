@@ -9,8 +9,11 @@ import * as customAssets from './customAssets.js';
 // assets et du rendu (placement des sprites), utilisé aussi bien pour l'affichage
 // initial que par l'éditeur en direct (voir editor/MapEditor.js).
 
-export const MAP_JSON_KEY = 'net-empire-map';
-export const MAP_JSON_PATH = 'maps/net-empire.tmj';
+// Carte par défaut, chargée à CHAQUE lancement (décision utilisateur du
+// 2026-09-24) : fichier au format Net Empire (voir mapData.js), fourni par
+// l'utilisateur après édition. Le .tmj de Tiled n'est plus chargé du tout.
+export const MAP_JSON_KEY = 'default-map';
+export const MAP_JSON_PATH = 'maps/default-map.json';
 
 export const TILE_WIDTH = 64;
 export const TILE_HEIGHT = 32;
@@ -109,8 +112,7 @@ export const LAYER_PALETTE = {
   ],
 };
 
-/** À appeler depuis scene.preload(). Charge le JSON Tiled (pour la conversion
- * initiale, voir mapData.js) + tous les assets réels utilisés dans le jeu +
+/** À appeler depuis scene.preload(). Charge la carte par défaut + tous les assets réels utilisés dans le jeu +
  * les assets personnalisés déjà enregistrés par l'utilisateur (voir
  * customAssets.js et editor/AddAssetModal.js). */
 export function preload(scene) {
@@ -125,7 +127,7 @@ export function preload(scene) {
   }
 }
 
-export function getRawTiledJson(scene) {
+export function getDefaultMapJson(scene) {
   return scene.cache.json.get(MAP_JSON_KEY);
 }
 

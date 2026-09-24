@@ -540,8 +540,8 @@ export class EditorPanel {
     const clearBtn = document.createElement('button');
     clearBtn.type = 'button';
     clearBtn.className = 'ne-clear-btn';
-    clearBtn.textContent = '↺ Revenir à la carte importée de Tiled';
-    clearBtn.title = 'Efface la sauvegarde locale et recharge la conversion Tiled d\'origine';
+    clearBtn.textContent = '↺ Revenir à la carte par défaut';
+    clearBtn.title = 'Annule les modifications de la session et recharge la carte par défaut';
     clearBtn.addEventListener('click', () => this.onClearSaved());
     this.panel.appendChild(clearBtn);
   }

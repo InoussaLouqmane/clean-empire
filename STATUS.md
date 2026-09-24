@@ -1294,3 +1294,25 @@ rebrancher : dans `MainMenu._render()`, ajouter
 `this.animatedBg = createAnimatedBackground(this.el.querySelector('.menu-bg'))`
 et `this.animatedBg.pause()` au début de `showLoading()`. Une nouvelle vidéo
 (camion qui sort du cadre, boucle invisible) a été demandée à l'utilisateur.
+
+---
+
+## 2026-09-24 — Nouvelle carte par défaut, chargée à chaque lancement
+
+### Fait
+
+- Carte fournie par l'utilisateur (`Downloads/new_default_map.json`, 40×30,
+  export de l'éditeur : 164 routes, 43 bâtiments, 128 détails, aucun asset
+  personnalisé) → `public/maps/default-map.json` (92 Ko, JSON compacté).
+- Demande : « chaque fois qu'on charge, c'est cette disposition ». Donc :
+  - `MapScene` charge **toujours** cette carte (validée par
+    `parseGridFile()`) ; le `.tmj` Tiled n'est plus chargé ;
+  - **plus de sauvegarde de la carte dans le navigateur** (fonctions
+    `loadSavedGrid`/`saveGrid`/`clearSavedGrid` supprimées) : une ancienne
+    sauvegarde reprenait sinon le dessus. Vérifié : une sauvegarde
+    « tout herbe » laissée dans le navigateur est bien ignorée, sur deux
+    rechargements successifs ;
+  - les éditions et imports JSON tiennent le temps de la session (registre
+    Phaser) ; bouton renommé « ↺ Revenir à la carte par défaut ».
+- Pour changer la carte par défaut à l'avenir : « Exporter la carte » dans
+  l'éditeur, puis remplacer `public/maps/default-map.json`.

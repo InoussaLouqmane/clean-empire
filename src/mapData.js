@@ -5,21 +5,20 @@
 // cellule { key, flipX, flipY } (voir makeCell() dans mapLoader.js — flipX/Y
 // gèrent l'orientation de la tuile, voir editor/MapEditor.js).
 //
-// convertTiledToGrid() ne s'exécute qu'une fois, au tout premier chargement
-// (tant qu'aucune carte éditée n'est sauvegardée) : c'est la seule partie du
-// code qui connaît encore le format Tiled. Toute la suite (rendu, éditeur,
-// sauvegarde, export) ne manipule que ce format-ci.
+// convertTiledToGrid() n'est PLUS appelée depuis le 2026-09-24 (la carte par
+// défaut est un export au format Net Empire) ; gardée comme seule trace de la
+// conversion Tiled d'origine, au cas où il faudrait réimporter un .tmj.
+// Toute la suite (rendu, éditeur, export) ne manipule que ce format-ci.
 
 import { makeCell } from './mapLoader.js';
 import * as customAssets from './customAssets.js';
 
 export const LAYER_NAMES = ['ground', 'roads', 'buildings', 'details'];
 
-// v2 (2026-09-23) : le format de cellule est passé de "clé de texture en
-// chaîne" à { key, flipX, flipY } pour supporter l'orientation des tuiles.
-// Changer la clé de stockage plutôt que migrer — une éventuelle sauvegarde v1
-// est simplement ignorée, on repart de la conversion Tiled.
-export const STORAGE_KEY = 'net-empire-map-v2';
+// Plus de sauvegarde de la carte dans le navigateur depuis le 2026-09-24 : la
+// carte par défaut (public/maps/default-map.json) est chargée à chaque
+// lancement. Pour garder une édition : "Exporter la carte", puis remplacer
+// ce fichier par l'export.
 
 const TILE_HEIGHT = 32; // dupliqué volontairement pour ne pas dépendre de mapLoader.js ici
 
@@ -129,32 +128,6 @@ export function convertTiledToGrid(tiledJson) {
   }
 
   return grid;
-}
-
-export function loadSavedGrid() {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    return raw ? JSON.parse(raw) : null;
-  } catch {
-    return null;
-  }
-}
-
-export function saveGrid(grid) {
-  try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(grid));
-  } catch {
-    // Stockage indisponible (navigation privée, quota dépassé...) : l'édition
-    // reste utilisable pour la session en cours, juste pas persistée.
-  }
-}
-
-export function clearSavedGrid() {
-  try {
-    localStorage.removeItem(STORAGE_KEY);
-  } catch {
-    // rien à faire si le stockage est indisponible
-  }
 }
 
 // Embarque les assets personnalisés (voir customAssets.js) dans le fichier
