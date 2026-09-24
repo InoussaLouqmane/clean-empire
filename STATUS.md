@@ -1223,3 +1223,35 @@ l'impression d'une ville-île au-dessus des nuages.
   (plus net) → `public/assets/menu/main_menu_background_v2.png` (l'ancien
   fichier est conservé). **Attention : toujours 564×317 px**, comme
   l'ancien — pour un vrai gain, il faut une version ≥ 1920×1080.
+
+---
+
+## 2026-09-24 — Fond de menu HD + préparation du fond animé
+
+### Fait
+
+- **Fond du menu en vraie HD** : `Downloads/large_background_image.png`
+  (1920×1080, 5 Mo en PNG) converti en WebP qualité 86 →
+  `public/assets/menu/main_menu_background_hd.webp` (**645 Ko**). Utilisé
+  dans `menu.css` et préchargé dans `index.html`. Les anciens fonds basse
+  résolution restent dans le dépôt, inutilisés.
+- **ffmpeg installé** (`winget install Gyan.FFmpeg`, accord de
+  l'utilisateur ; binaire dans
+  `%LOCALAPPDATA%\Microsoft\WinGet\Packages\Gyan.FFmpeg_…\ffmpeg-9.0.2-full_build\bin\`,
+  pas encore dans le PATH des shells déjà ouverts).
+- **Analyse du fond animé** `Downloads/Static_background_localized_anim…mp4`
+  (1280×720, 24 i/s, 10 s, 8,3 Mo, contient une piste audio inutile) :
+  même composition que le fond fixe, camion-poubelle qui roule. Problèmes :
+  la boucle ne se raccorde pas (le camion saute d'environ 150 px à la
+  reprise, et repart en marche arrière) ; léger « frémissement IA » sur
+  toute l'image. Test de compression : H.264 CRF 27 sans audio → **1,6 Mo**
+  (VP9 : 1,8 Mo). **Pas intégré** : l'utilisateur va fournir une version où
+  le camion sort du cadre, pour une boucle invisible.
+
+### Prochaine étape
+
+Quand la nouvelle vidéo arrive : compresser (H.264, sans audio,
+`+faststart`), l'afficher derrière le menu en fondu une fois prête (l'image
+HD reste affichée tout de suite), la mettre en pause au lancement d'une
+partie, et garder l'image fixe si « réduire les animations » ou « économie
+de données » est activé.

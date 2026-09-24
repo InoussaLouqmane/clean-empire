@@ -20,10 +20,8 @@
 .menu-bg {
   position: absolute;
   inset: 0;
-  background: var(--palette-dark) url('/assets/menu/main_menu_background_v2.png') center / cover no-repeat;
-  /* Fond fourni en 564×317 (agrandi ~3,4×) : lissage standard, le mode
-     "pixelated" rendait l'image trop pixelisée (retour utilisateur du
-     2026-09-24). À remplacer par la version HD dès qu'elle est disponible. */
+  background: var(--palette-dark) url('/assets/menu/main_menu_background_hd.webp') center / cover no-repeat;
+  /* Fond HD 1920×1080 (WebP ~650 Ko) fourni par l'utilisateur le 2026-09-24. */
   image-rendering: auto;
 }
 .menu-bg::after {
