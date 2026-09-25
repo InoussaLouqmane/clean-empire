@@ -1504,3 +1504,16 @@ toujours de gauche à droite (il était aligné à droite pour Karim).
 ### Prochaine étape
 
 Retours de l'utilisateur sur la boîte ; livraison des portraits.
+
+---
+
+## 2026-09-25 — Phrases d'ambiance sur l'écran de chargement
+
+- `src/menu/loadingHints.js` : 24 phrases (« Mise en place des ouvriers… »,
+  « Import des engins… »…), purement décoratives. Une à la fois, ordre
+  aléatoire sans répétition, changement toutes les 1,1 à 1,9 s avec fondu,
+  jusqu'à la fin du chargement (arrêt dans `MainMenu.destroy()` ; masquées
+  si le chargement échoue). Ajouter/modifier les phrases dans ce fichier.
+- Vérifié en headless avec réseau ralenti : les phrases défilent, aucune
+  erreur. Sur une connexion rapide, le chargement peut être trop court pour
+  en voir plus d'une (le jeu est déjà pré-chargé pendant le menu).

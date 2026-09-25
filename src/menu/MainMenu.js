@@ -1,5 +1,6 @@
 import { icon } from './icons.js';
 import { createAnimatedBackground } from './animatedBackground.js';
+import { startLoadingHints } from './loadingHints.js';
 
 // Main Menu de CLEAN CEO — overlay DOM/CSS (pas Phaser), pour s'afficher
 // immédiatement sans attendre le moteur de jeu ni les assets de la carte
@@ -296,12 +297,15 @@ export class MainMenu {
         <p class="loading__title">Chargement de la ville…</p>
         <div class="loading__bar" aria-hidden="true">${'<span></span>'.repeat(20)}</div>
         <p class="loading__percent">0 %</p>
+        <p class="loading__hint" aria-hidden="true"></p>
       </div>`;
     setTimeout(() => this.el.appendChild(overlay), LEAVE_MS);
 
     const segments = overlay.querySelectorAll('.loading__bar span');
     const percentEl = overlay.querySelector('.loading__percent');
     const titleEl = overlay.querySelector('.loading__title');
+    // Phrases d'ambiance qui défilent jusqu'à la fin du chargement.
+    this._stopHints = startLoadingHints(overlay.querySelector('.loading__hint'));
 
     return {
       setProgress: (ratio) => {
@@ -313,11 +317,17 @@ export class MainMenu {
       setTitle: (text) => {
         titleEl.textContent = text;
       },
+      /** Arrête et masque les phrases d'ambiance (ex. en cas d'erreur). */
+      stopHints: () => {
+        this._stopHints?.();
+        overlay.querySelector('.loading__hint').hidden = true;
+      },
     };
   }
 
   /** Retire tout le menu en fondu, une fois la carte affichée derrière. */
   destroy() {
+    this._stopHints?.();
     document.removeEventListener('keydown', this._onKeyDownGlobal);
     this.el.classList.add('is-gone');
     setTimeout(() => this.el.remove(), LEAVE_MS);

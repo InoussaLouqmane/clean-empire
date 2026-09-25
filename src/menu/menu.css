@@ -558,6 +558,27 @@
   font-size: 14px;
   color: var(--color-reward);
 }
+/* phrase d'ambiance (loadingHints.js) : une à la fois, fondu entre deux */
+.loading__hint {
+  min-height: 1.4em;
+  margin: 8px 0 0;
+  font-size: 14px;
+  font-style: italic;
+  color: var(--color-text-inverse);
+  opacity: 0.85;
+  transition:
+    opacity 220ms var(--ease-out),
+    transform 220ms var(--ease-out);
+}
+.loading__hint.is-out {
+  opacity: 0;
+  transform: translateY(4px);
+}
+@media (prefers-reduced-motion: reduce) {
+  .loading__hint {
+    transition: none;
+  }
+}
 
 /* ----------------------------------------------------------- animations */
 

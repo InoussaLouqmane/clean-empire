@@ -30,6 +30,7 @@ async function launch(mode) {
     game = await preloadGame();
   } catch (err) {
     console.error(err);
+    loading.stopHints();
     loading.setTitle('Impossible de charger la partie. Recharge la page.');
     return;
   } finally {
