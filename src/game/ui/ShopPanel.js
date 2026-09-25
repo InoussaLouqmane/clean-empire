@@ -4,59 +4,59 @@ import { bus } from '../events.js';
 import { sfx } from '../sfx.js';
 import { unitIcon, conditionGauge, STATUS_LABELS } from './units.js';
 
+const TABS = [
+  { id: 'staff', icon: 'worker', label: 'Personnel & équipement', short: 'Équipe' },
+  { id: 'upgrades', icon: 'gear', label: 'Améliorations', short: 'Améliorations' },
+  { id: 'premium', icon: 'star', label: 'Premium', short: 'Premium' },
+];
+const UPGRADE_IDS = Object.keys(ECONOMY.upgrades);
+const COMING_SOON_MS = 2200;
+
 /**
- * Boutique : recruter un ouvrier à pied, acheter un engin (unité « tout
- * compris », conducteur inclus), réparer un engin en panne. Chaque action a
- * son propre retour (design system §21–24). Un article indisponible affiche
- * toujours POURQUOI.
+ * Boutique — pop-up plein écran à onglets (prompt du 2026-09-25) :
+ * - « Personnel & équipement » : recruter un ouvrier à pied, acheter un engin
+ *   (conducteur inclus), état et réparation de ses engins ;
+ * - « Améliorations » : upgrades permanents (economy.js → upgrades) ;
+ * - « Premium » : achats en argent réel SIMULÉS (prix en XOF, bouton
+ *   « Arrive bientôt ») — démonstration de la monétisation.
+ * Onglets 2 et 3 verrouillés tant que le tutoriel n'est pas fini (ses
+ * montants ne doivent pas bouger). Chaque action a son propre retour (design
+ * system §21–24) ; un article indisponible affiche toujours POURQUOI.
  */
 export class ShopPanel {
   constructor(root, state) {
     this.state = state;
     this.isOpen = false;
+    this.tab = 'staff';
+    this.tutorialRecruit = false;
+    this.recruitDenied = 0;
 
     this.el = document.createElement('div');
     this.el.className = 'shop';
     this.el.hidden = true;
-    this.el.setAttribute('role', 'dialog');
-    this.el.setAttribute('aria-label', 'Boutique');
     this.el.innerHTML = `
-      <header class="shop__header">
-        <img src="assets/ui/boutique.png" alt="" width="160" height="157" />
-        <h2>Boutique</h2>
-        <button type="button" class="shop__close" aria-label="Fermer la boutique">×</button>
-      </header>
-      <p class="shop__money">Ton argent : <b data-shop="money"></b></p>
-      <p class="shop__section">Recruter</p>
-      <ul class="shop__items">
-        <li class="shop-item" data-item="walker">
-          ${unitIcon('walker')}
-          <span class="shop-item__text">
-            <b>Ouvrier à pied</b>
-            <small>+1 unité · collecte en ${ECONOMY.clients.building_restaurant.durationS} s</small>
-          </span>
-          <button type="button" class="game-btn game-btn--primary" data-buy="walker">
-            <span class="game-btn__label" data-price="walker"></span>
-          </button>
-        </li>
-        ${VEHICLE_TYPES.map((type) => {
-          const v = ECONOMY.units[type];
-          return `
-        <li class="shop-item" data-item="${type}">
-          ${unitIcon(type)}
-          <span class="shop-item__text">
-            <b>${v.label} <small>(conducteur inclus)</small></b>
-            <small>Collecte −${v.speedupS} s · carburant ${v.fuel} FCFA</small>
-          </span>
-          <button type="button" class="game-btn game-btn--secondary" data-buy="${type}">
-            <span class="game-btn__label"></span>
-          </button>
-        </li>`;
-        }).join('')}
-      </ul>
-      <div data-shop="fleet"></div>`;
-    this.tutorialRecruit = false;
-    this.recruitDenied = 0;
+      <div class="shop__window" role="dialog" aria-label="Boutique">
+        <header class="shop__header">
+          <img src="assets/ui/boutique.png" alt="" width="160" height="157" />
+          <h2>Boutique</h2>
+          <p class="shop__money">${icon('coin')}<b data-shop="money"></b></p>
+          <button type="button" class="shop__close" aria-label="Fermer la boutique">×</button>
+        </header>
+        <div class="shop__tabs" role="tablist">
+          ${TABS.map(
+            (t) => `
+          <button type="button" role="tab" class="shop__tab" data-tab="${t.id}" aria-selected="${t.id === 'staff'}">
+            ${icon(t.icon)}<span class="shop__tab-long">${t.label}</span><span class="shop__tab-short">${t.short}</span>
+            <span class="shop__tab-lock" hidden>${icon('lock')}</span>
+          </button>`
+          ).join('')}
+        </div>
+        <div class="shop__body">
+          <section class="shop__panel" data-panel="staff">${this._staffHtml()}</section>
+          <section class="shop__panel" data-panel="upgrades" hidden></section>
+          <section class="shop__panel" data-panel="premium" hidden></section>
+        </div>
+      </div>`;
     root.appendChild(this.el);
 
     this.el.addEventListener('click', (e) => {
@@ -70,16 +70,32 @@ export class ShopPanel {
         this.close();
         return;
       }
+      const tab = e.target.closest('[data-tab]');
+      if (tab) {
+        sfx.click();
+        this.showTab(tab.dataset.tab);
+        return;
+      }
       const buy = e.target.closest('[data-buy]');
       if (buy) this._act(buy, () => (buy.dataset.buy === 'walker' ? this.state.hireWorker() : this.state.buyVehicle(buy.dataset.buy)));
       const repair = e.target.closest('[data-repair]');
       if (repair) this._act(repair, () => this.state.repairUnit(repair.dataset.repair), 'repair');
+      const upgrade = e.target.closest('[data-upgrade]');
+      if (upgrade) this._act(upgrade, () => this.state.buyUpgrade(upgrade.dataset.upgrade), 'upgrade');
+      const pack = e.target.closest('[data-pack]');
+      if (pack) this._comingSoon(pack);
     });
+    this._onKey = (e) => {
+      if (e.key === 'Escape' && this.isOpen && !this._onShowcaseClick) this.close();
+    };
+    window.addEventListener('keydown', this._onKey);
     this._off = bus.on('state_changed', () => this.isOpen && this.render());
-    this._timer = setInterval(() => this.isOpen && this.render(), 1000);
+    // Secondes de réparation : seul l'onglet Équipe en a besoin. Les autres ne
+    // sont pas redessinés en boucle (un bouton remplacé sous le doigt perd le clic).
+    this._timer = setInterval(() => this.isOpen && this.tab === 'staff' && this.render(), 1000);
   }
 
-  open() {
+  open(tab = 'staff') {
     if (this.isOpen) return;
     sfx.open();
     this.isOpen = true;
@@ -87,7 +103,7 @@ export class ShopPanel {
     this.el.classList.remove('is-in');
     void this.el.offsetWidth;
     this.el.classList.add('is-in');
-    this.render();
+    this.showTab(tab);
     bus.emit('shop_opened');
   }
 
@@ -101,6 +117,14 @@ export class ShopPanel {
   toggle() {
     if (this.isOpen) this.close();
     else this.open();
+  }
+
+  showTab(id) {
+    this.tab = id;
+    for (const b of this.el.querySelectorAll('[data-tab]')) b.setAttribute('aria-selected', String(b.dataset.tab === id));
+    for (const s of this.el.querySelectorAll('[data-panel]')) s.hidden = s.dataset.panel !== id;
+    this.el.querySelector('.shop__body').scrollTop = 0;
+    this.render();
   }
 
   /**
@@ -136,10 +160,57 @@ export class ShopPanel {
   render() {
     const s = this.state;
     this.el.querySelector('[data-shop="money"]').textContent = formatMoney(s.money);
+    const locked = !s.tutorial.done;
+    for (const b of this.el.querySelectorAll('[data-tab]')) {
+      b.querySelector('.shop__tab-lock').hidden = !(locked && b.dataset.tab !== 'staff');
+    }
+    if (this.tab === 'staff') this._renderStaff();
+    else if (this.tab === 'upgrades') this._renderUpgrades(locked);
+    else this._renderPremium(locked);
+  }
 
+  // ----------------------------------------------- Personnel & équipement
+
+  _staffHtml() {
+    return `
+      <p class="shop__section">Recruter</p>
+      <ul class="shop__items">
+        <li class="shop-item" data-item="walker">
+          ${unitIcon('walker')}
+          <span class="shop-item__text">
+            <b>Ouvrier à pied</b>
+            <small data-shop="walker-desc"></small>
+          </span>
+          <button type="button" class="game-btn game-btn--primary" data-buy="walker">
+            <span class="game-btn__label" data-price="walker"></span>
+          </button>
+        </li>
+        ${VEHICLE_TYPES.map((type) => {
+          const v = ECONOMY.units[type];
+          return `
+        <li class="shop-item" data-item="${type}">
+          ${unitIcon(type)}
+          <span class="shop-item__text">
+            <b>${v.label} <small>(conducteur inclus)</small></b>
+            <small data-shop="${type}-desc"></small>
+          </span>
+          <button type="button" class="game-btn game-btn--secondary" data-buy="${type}">
+            <span class="game-btn__label"></span>
+          </button>
+        </li>`;
+        }).join('')}
+      </ul>
+      <div data-shop="fleet"></div>`;
+  }
+
+  _renderStaff() {
+    const s = this.state;
+    const m = s.mods;
     const walkerBtn = this.recruitButton;
     const cost = s.nextWalkerCost;
     this.el.querySelector('[data-price="walker"]').textContent = formatMoney(cost);
+    const walkerS = Math.max(ECONOMY.collection.minDurationS, ECONOMY.clients.building_restaurant.durationS - m.walkerSpeedupS);
+    this.el.querySelector('[data-shop="walker-desc"]').textContent = `+1 unité · collecte en ${walkerS} s`;
     const short = s.money < cost && !this.tutorialRecruit;
     walkerBtn.setAttribute('aria-disabled', String(short));
     walkerBtn.title = short ? "Pas assez d'argent" : '';
@@ -152,6 +223,7 @@ export class ShopPanel {
       btn.setAttribute('aria-disabled', String(Boolean(blocker)));
       btn.title = blocker ?? '';
       this.el.querySelector(`[data-item="${type}"]`).classList.toggle('is-locked', locked);
+      this.el.querySelector(`[data-shop="${type}-desc"]`).textContent = `Collecte −${v.speedupS} s · carburant ${Math.round(v.fuel * m.fuelMult)} FCFA`;
       btn.querySelector('.game-btn__label').innerHTML = locked ? `${icon('lock')} Niveau ${v.unlockLevel}` : formatMoney(v.cost);
     }
 
@@ -195,6 +267,80 @@ export class ShopPanel {
       </ul>`;
   }
 
+  // ------------------------------------------------------ Améliorations
+
+  _renderUpgrades(locked) {
+    const panel = this.el.querySelector('[data-panel="upgrades"]');
+    if (locked) {
+      panel.innerHTML = lockedHtml('Les améliorations se débloquent à la fin du tutoriel.');
+      return;
+    }
+    const s = this.state;
+    panel.innerHTML = `
+      <p class="shop__lead">Des investissements permanents, achetés une seule fois, qui changent ta façon de travailler.</p>
+      <ul class="shop__items">
+        ${UPGRADE_IDS.map((id) => {
+          const u = ECONOMY.upgrades[id];
+          const owned = s.upgrades.includes(id);
+          const blocker = s.upgradeBlocker(id);
+          const levelLocked = !owned && !u.comingSoon && u.unlockLevel > s.level;
+          let action;
+          if (owned) action = `<span class="unit-row__status is-available">${icon('star')} Acquise</span>`;
+          else if (u.comingSoon) action = `<button type="button" class="game-btn" aria-disabled="true" title="${blocker}"><span class="game-btn__label">Bientôt</span></button>`;
+          else if (levelLocked) action = `<button type="button" class="game-btn" aria-disabled="true" title="${blocker}"><span class="game-btn__label">${icon('lock')} Niveau ${u.unlockLevel}</span></button>`;
+          else action = `<button type="button" class="game-btn game-btn--primary" data-upgrade="${id}" aria-disabled="${Boolean(blocker)}" title="${blocker ?? ''}"><span class="game-btn__label">${formatMoney(u.cost)}</span></button>`;
+          return `
+        <li class="shop-item${owned ? ' is-owned' : ''}${levelLocked || u.comingSoon ? ' is-locked' : ''}" data-item="upgrade-${id}">
+          <span class="shop-item__icon">${icon(u.icon)}</span>
+          <span class="shop-item__text"><b>${u.label}</b><small>${u.desc}</small></span>
+          ${action}
+        </li>`;
+        }).join('')}
+      </ul>`;
+  }
+
+  // ------------------------------------------------------------- Premium
+
+  _renderPremium(locked) {
+    const panel = this.el.querySelector('[data-panel="premium"]');
+    if (locked) {
+      panel.innerHTML = lockedHtml('La boutique premium ouvre à la fin du tutoriel.');
+      return;
+    }
+    if (panel.dataset.built) return; // contenu statique : pas de re-rendu (garde « Arrive bientôt »)
+    panel.dataset.built = '1';
+    panel.innerHTML = `
+      <p class="shop__demo">${icon('lock')} Achats en argent réel : <b>démonstration</b>, aucun paiement n'est actif pour l'instant.</p>
+      <ul class="premium">
+        ${ECONOMY.premium.map(
+          (p) => `
+        <li class="premium-pack">
+          ${p.tag ? `<span class="premium-pack__tag">${p.tag}</span>` : ''}
+          <span class="premium-pack__art" aria-hidden="true">${icon('coin')}<small>visuel à venir</small></span>
+          <b class="premium-pack__name">${p.label}</b>
+          <ul class="premium-pack__contents">${p.contents.map((c) => `<li>${c}</li>`).join('')}</ul>
+          <button type="button" class="game-btn game-btn--primary" data-pack="${p.id}" data-price="${formatXof(p.priceXOF)}">
+            <span class="game-btn__label" role="status">${formatXof(p.priceXOF)}</span>
+          </button>
+        </li>`
+        ).join('')}
+      </ul>
+      <p class="shop__note">Prix en <b>XOF</b> (argent réel), à ne pas confondre avec les FCFA gagnés en jeu.</p>`;
+  }
+
+  /** Achat premium simulé : pas de paiement, juste « Arrive bientôt ». */
+  _comingSoon(btn) {
+    sfx.denied();
+    const label = btn.querySelector('.game-btn__label');
+    label.textContent = 'Arrive bientôt';
+    btn.classList.add('is-soon');
+    clearTimeout(btn._t);
+    btn._t = setTimeout(() => {
+      label.textContent = btn.dataset.price;
+      btn.classList.remove('is-soon');
+    }, COMING_SOON_MS);
+  }
+
   _act(btn, fn, kind) {
     if (btn.getAttribute('aria-disabled') === 'true' || !fn()) {
       sfx.denied();
@@ -208,10 +354,10 @@ export class ShopPanel {
       btn.classList.add('is-denied');
       return;
     }
-    if (kind === 'repair') sfx.buy();
+    if (kind === 'repair' || kind === 'upgrade') sfx.buy();
     else if (btn.dataset.buy === 'walker') sfx.hire();
     else sfx.buy();
-    const item = btn.closest('.shop-item');
+    const item = this.el.querySelector(`[data-item="${btn.closest('.shop-item')?.dataset.item}"]`);
     item?.classList.remove('is-bought');
     void item?.offsetWidth;
     item?.classList.add('is-bought');
@@ -219,7 +365,17 @@ export class ShopPanel {
 
   destroy() {
     clearInterval(this._timer);
+    window.removeEventListener('keydown', this._onKey);
     this._off();
     this.el.remove();
   }
+}
+
+function lockedHtml(text) {
+  return `<div class="shop__locked">${icon('lock')}<p>${text}</p></div>`;
+}
+
+/** Prix en argent réel : « 1 000 XOF ». */
+function formatXof(amount) {
+  return formatMoney(amount).replace('FCFA', 'XOF'); // même séparateur de milliers
 }
