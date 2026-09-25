@@ -1748,3 +1748,82 @@
 .toast--level {
   border-color: var(--color-success);
 }
+
+/* ------------------------------------------------ sélecteur d'unités */
+/* Une pastille PAR TYPE d'unité, en ligne (badge = nombre disponible) —
+   affiché seulement si le joueur possède au moins 2 types (2026-09-25). */
+.unit-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 0 0 8px;
+}
+.unit-chip {
+  position: relative;
+  display: grid;
+  justify-items: center;
+  gap: 1px;
+  flex: 1 1 0;
+  min-width: 68px;
+  padding: 6px 4px 5px;
+  font-family: var(--font-ui);
+  color: var(--color-text);
+  background: rgba(140, 120, 96, 0.14);
+  border: 2px solid var(--palette-beige);
+  border-radius: var(--radius-small);
+  cursor: pointer;
+}
+.unit-chip:hover:not([aria-disabled='true']) {
+  background: rgba(110, 143, 82, 0.22);
+  border-color: var(--color-success);
+}
+.unit-chip[aria-disabled='true'] {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+.unit-chip .unit-icon {
+  width: 32px;
+  height: 32px;
+}
+.unit-chip .unit-icon .px-icon {
+  width: 26px;
+  height: 26px;
+}
+.unit-chip__badge {
+  position: absolute;
+  top: -8px;
+  right: -6px;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 4px;
+  font-size: 12px;
+  font-weight: 800;
+  line-height: 16px;
+  color: var(--palette-cream);
+  background: var(--color-success);
+  border: 2px solid var(--palette-dark);
+  border-radius: 10px;
+}
+.unit-chip[aria-disabled='true'] .unit-chip__badge {
+  background: var(--palette-brown-grey);
+}
+.unit-chip__name {
+  font-size: 12px;
+  font-weight: 800;
+}
+.unit-chip__meta {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--color-primary);
+  white-space: nowrap;
+}
+.building-menu [data-bm='collect'] {
+  width: 100%;
+}
+.building-menu__meta {
+  display: block;
+  margin-top: 5px;
+  font-size: 11px;
+  text-align: center;
+  color: var(--color-text-muted);
+}
