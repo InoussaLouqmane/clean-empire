@@ -1936,3 +1936,94 @@
   background-color: rgba(241, 233, 210, 0.9);
   border-radius: 6px;
 }
+
+/* ------------------------------------------------ HUD compact (téléphone) */
+/* Retour utilisateur du 2026-09-25 : la barre était trop large sur téléphone.
+   Sur ces écrans, elle ne garde que l'argent ; niveau, XP et unités passent
+   dans le menu (roue crantée → « Ta partie »). */
+.game-menu__stats {
+  display: none;
+}
+.game-menu__level {
+  display: grid;
+  grid-template-columns: auto auto 1fr;
+  align-items: center;
+  gap: 4px 8px;
+  font-size: 14px;
+}
+.game-menu__level .px-icon {
+  width: 18px;
+  height: 18px;
+  color: var(--color-reward);
+}
+.game-menu__level small {
+  color: var(--color-text-muted);
+}
+.game-menu__level .hud-xp__track {
+  grid-column: 1 / -1;
+  display: block;
+  height: 6px;
+  background: var(--palette-brown);
+}
+.game-menu__level .hud-xp__fill {
+  display: block;
+  height: 100%;
+  background: var(--color-success);
+}
+.game-menu__units {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 8px;
+}
+.game-menu__unit {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 7px;
+  font-size: 13px;
+  background: rgba(140, 120, 96, 0.16);
+  border-radius: var(--radius-small);
+}
+.game-menu__unit .unit-icon {
+  width: 22px;
+  height: 22px;
+}
+.game-menu__unit small {
+  color: var(--color-text-muted);
+}
+
+@media (max-width: 700px), (max-height: 500px) {
+  .hud-game .hud-stat--xp,
+  .hud-game [data-hud='walker'],
+  .hud-game .hud-stat--unit {
+    display: none !important;
+  }
+  .hud-game {
+    gap: 6px;
+  }
+  .hud-shop {
+    width: 46px;
+    height: 46px;
+  }
+  .hud-quests {
+    width: 42px;
+    height: 42px;
+  }
+  .hud-quests .px-icon {
+    width: 24px;
+    height: 24px;
+  }
+  .hud-bar {
+    font-size: 14px;
+  }
+  .game-menu__stats {
+    display: block;
+    padding-bottom: 10px;
+    border-bottom: 2px solid rgba(140, 120, 96, 0.3);
+  }
+  .game-menu__panel {
+    max-height: calc(100vh - 80px);
+    overflow-y: auto;
+  }
+}

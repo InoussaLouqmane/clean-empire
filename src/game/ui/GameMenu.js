@@ -1,5 +1,8 @@
 import { icon } from '../../menu/icons.js';
 import { sfx } from '../sfx.js';
+import { bus } from '../events.js';
+import { ECONOMY, VEHICLE_TYPES } from '../economy.js';
+import { unitIcon } from './units.js';
 
 // Mêmes clés que menu/SoundManager.js : sfx.js les relit à chaque son, donc
 // un changement ici s'applique immédiatement.
@@ -37,6 +40,7 @@ export class GameMenu {
       <button type="button" class="game-menu__toggle" aria-label="Menu" aria-expanded="false">${icon('gear')}</button>
       <div class="game-menu__panel" role="dialog" aria-label="Menu" hidden>
         <p class="game-menu__title">Menu</p>
+        <div class="game-menu__stats" data-menu="stats"></div>
         <div class="game-menu__row">
           <span>Son</span>
           <button type="button" class="game-menu__mute" data-menu="mute"></button>
@@ -99,6 +103,7 @@ export class GameMenu {
       if (this.isOpen && !this.el.contains(e.target)) this.close();
     };
     window.addEventListener('keydown', this._onKey);
+    this._offState = bus.on('state_changed', () => this.isOpen && this._renderStats());
     document.addEventListener('pointerdown', this._onOutside, true);
   }
 
@@ -118,7 +123,32 @@ export class GameMenu {
     this.toggleBtn.setAttribute('aria-expanded', 'false');
   }
 
+  /**
+   * Ta partie (niveau, XP, unités) : affiché seulement sur téléphone (CSS),
+   * où ces infos quittent la barre du HUD, trop large (retour du 2026-09-25).
+   */
+  _renderStats() {
+    const s = this.state;
+    const { floor, next } = s.levelBounds;
+    const now = Date.now();
+    const units = ['walker', ...VEHICLE_TYPES]
+      .map((t) => {
+        const list = s.units.filter((u) => u.type === t);
+        if (!list.length) return '';
+        const free = list.filter((u) => s.unitStatus(u, now) === 'available').length;
+        return `<span class="game-menu__unit">${unitIcon(t)}<b>${free}/${list.length}</b><small>${ECONOMY.units[t].label}${list.length > 1 ? 's' : ''}</small></span>`;
+      })
+      .join('');
+    this.el.querySelector('[data-menu="stats"]').innerHTML = `
+      <div class="game-menu__level">
+        ${icon('star')}<b>Niveau ${s.level}</b><small>${s.xp} XP</small>
+        <span class="hud-xp__track"><span class="hud-xp__fill" style="width:${Math.min(100, (100 * (s.xp - floor)) / (next - floor))}%"></span></span>
+      </div>
+      <div class="game-menu__units">${units}</div>`;
+  }
+
   _render() {
+    this._renderStats();
     const muted = read(MUTE_KEY, 'false') === 'true';
     this.muteBtn.innerHTML = `${icon(muted ? 'soundOff' : 'soundOn')}<span>${muted ? 'Coupé' : 'Activé'}</span>`;
     this.muteBtn.setAttribute('aria-pressed', String(!muted));
@@ -135,6 +165,7 @@ export class GameMenu {
 
   destroy() {
     window.removeEventListener('keydown', this._onKey);
+    this._offState?.();
     document.removeEventListener('pointerdown', this._onOutside, true);
     this.el.remove();
   }

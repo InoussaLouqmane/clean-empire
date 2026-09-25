@@ -1722,3 +1722,16 @@ Tutoriel complet desktop et mobile jusqu'aux contrats (annonce de Karim,
 niveau 3 → 4 nouvelles demandes + réplique ; reprise en plein tutoriel (4
 onglets verrouillés sauf Équipe) ; ancienne partie à 12 XP ; boutique desktop
 et mobile ; sélecteur 1 type / 3 types / 100 ouvriers + HUD ; menu ; `?edit`.
+
+### HUD compact sur téléphone + vérification du déplacement tactile (même jour)
+
+- Capture `Downloads/mobile responsive.png` (portrait) : la barre du HUD
+  débordait sous la roue du menu (431 px pour un écran de 390). Sur téléphone
+  (`max-width: 700px` ou `max-height: 500px`), la barre ne garde que l'argent ;
+  niveau, XP et unités sont dans le menu (roue crantée, bloc en tête du
+  panneau). Desktop inchangé.
+- Déplacement tactile vérifié en simulant un vrai téléphone (écran tactile,
+  glissés au doigt via CDP) en 390×844 et 844×390 : la caméra suit (x et y).
+  Le code gère glissé + pincement. Piste si ça bloque dans le mode « appareil
+  mobile » de Chrome : Phaser détecte le tactile au démarrage → recharger la
+  page APRÈS avoir activé ce mode.
