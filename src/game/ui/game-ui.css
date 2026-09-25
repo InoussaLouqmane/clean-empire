@@ -1497,20 +1497,31 @@
   color: var(--color-error);
 }
 
-/* Vitrine du tutoriel (ShopPanel.setShowcase) : lecture seule, engins en
-   avant, le reste estompé ; le clic est capté par le panneau (avance Karim). */
+/* Vitrine du tutoriel (ShopPanel.setShowcase) : lecture seule, SEULS les
+   engins sont montrés (le reste est masqué : sur un écran de téléphone, la
+   boîte de dialogue cacherait sinon le camion) ; le clic est capté par le
+   panneau (avance Karim). */
 .shop.is-showcase {
   cursor: pointer;
 }
 .shop.is-showcase button {
   pointer-events: none;
 }
-.shop.is-showcase .shop__money,
-.shop.is-showcase .shop__tabs,
 .shop.is-showcase .shop__section,
 .shop.is-showcase [data-item='walker'],
 .shop.is-showcase [data-shop='fleet'] {
+  display: none;
+}
+.shop.is-showcase .shop__tabs {
   opacity: 0.45;
+}
+.shop.is-showcase .shop__body {
+  padding-top: 10px;
+}
+@media (max-height: 500px) {
+  .shop.is-showcase .shop__tabs {
+    display: none;
+  }
 }
 
 /* ------------------------------------------------------------ quêtes */

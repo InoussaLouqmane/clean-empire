@@ -227,6 +227,15 @@ pour le détail exact et la prochaine étape.
 - Tous les bâtiments sont cliquables (`buildingRegistry.js` = noms et
   clients). Les clics Phaser sur un bâtiment ne comptent que si leur cible
   DOM est le canvas (sinon un clic sur l'UI au-dessus « traverse »).
+- **Boutique** (2026-09-25) : pop-up plein écran à onglets (Personnel &
+  équipement / Améliorations / Premium simulé en XOF). Améliorations :
+  `ECONOMY.upgrades`, effets UNIQUEMENT via `modifiers()` (economy.js).
+- **Niveaux** : 1 pendant le tutoriel, puis `levelInfo(xp)` (100 / 300 / 600…).
+- **Quêtes** : données dans `src/game/quests.js`, suivi dans GameState
+  (`_checkQuests`, `claimQuest`), carnet `ui/QuestPanel.js` ; récompense
+  toujours réclamée à la main. Sauvegarde v3 (même clé, champs ajoutés).
+- **Collecte** : jauge au pied = accumulation ; anneau au-dessus = en cours.
+  Sélecteur d'unités seulement si ≥ 2 types (pastilles par type).
 - Dialogue (refait le 2026-09-25, façon Stardew) : boîte en bas, texte
   TOUJOURS aligné à gauche, bustes joueur à gauche / Karim à droite (les deux
   en 'full', seul celui qui parle en 'light'). Groupes `SCRIPT` avec `mode` ('full' | 'light') et `focus` ;

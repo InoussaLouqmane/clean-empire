@@ -1602,3 +1602,68 @@ buste entier, bras croisés). `curieux` sert aussi de portrait neutre quand
 Karim parle avant que le joueur ne se soit exprimé (`PLAYER_NEUTRAL` dans
 `portraits.js`) ; la silhouette + initiale reste en repli. Vérifié : niveau
 complet, les 2 portraits affichés, aucune erreur.
+
+---
+
+## 2026-09-25 — Boutique à onglets, améliorations, quêtes, temporalités, sélecteur d'unités
+
+### Contexte
+
+`Downloads/prompt-boutique-quetes-timers.md` + correctif « sélection des
+ressources » envoyé ensuite. Décisions utilisateur : onglet Contrats
+ABANDONNÉ ; montée de niveau par l'XP activée ; onglets Améliorations et
+Premium verrouillés pendant le tutoriel ; quêtes suivies en coulisses puis
+présentées par Karim (texte libre, portrait existant) ; premium = « Arrive
+bientôt », prix en XOF ; tout livrer et pousser après tests (utilisateur
+absent).
+
+### Fait
+
+1. **Temporalités** : jauge horizontale au pied de chaque bâtiment sous
+   contrat = déchets accumulés (pleine → « ! » au-dessus) ; anneau + secondes
+   au-dessus = collecte EN COURS. Le compte à rebours de recollecte a disparu.
+   Fiche : « Déchets en accumulation : 63 % ».
+2. **Modèle** (`economy.js`, `GameState.js`) : niveau = f(XP totale) après le
+   tutoriel (100 XP → niv. 2, 300 → 3, 600 → 4…) ; 7 améliorations
+   (`ECONOMY.upgrades`, effets centralisés dans `modifiers()`, lus par
+   `collectionDuration` / `collectionReward` / `maxUses` / réparation) ;
+   compteurs `stats` ; sauvegarde **v3** (champs ajoutés, même clé — une v2
+   est reprise avec des valeurs par défaut).
+3. **Boutique plein écran à onglets** (`ShopPanel.js` réécrit, même API) :
+   Personnel & équipement / Améliorations / Premium (3 packs mixtes, prix en
+   XOF, bouton → « Arrive bientôt », placeholders « visuel à venir »). Le
+   tutoriel (essai de recrutement, vitrine des engins) marche dans la
+   nouvelle boutique ; en vitrine, seuls les engins sont affichés (sinon la
+   boîte de dialogue cachait le camion sur téléphone).
+4. **Quêtes** (`quests.js` : 36 quêtes, niv. 1 = 3 d'intro ; `ui/QuestPanel.js`) :
+   jauge par quête, bouton « Réclamer » (jamais automatique), quête retirée
+   une fois réclamée ; bouton carnet (icône `book`, placeholder) dans le HUD à
+   côté de la boutique, badge rouge = quêtes à réclamer. Caché pendant le
+   tutoriel, puis présenté par Karim après « Continuer à jouer » (répliques
+   `quetes` / `quetesOuvrir` dans `script.js`). Annonces (`ui/Toast.js`) :
+   montée de niveau (ce qui est débloqué) et objectifs remplis (regroupés).
+   « Premiers bénéfices » ramenée à 1 500 FCFA pour que les 3 quêtes d'intro
+   soient prêtes à la fin du tutoriel.
+5. **Sélecteur d'unités** (`BuildingMenu.js`) : un seul TYPE possédé →
+   bouton « Collecter » direct (ligne « Ouvriers disponibles : 2 · 15 s ·
+   +500 FCFA ») ; ≥ 2 types → une pastille par type en ligne (badge =
+   disponibles, durée, gain net), clic = collecte lancée avec ce type (engin :
+   le mieux entretenu). Hauteur de fiche identique avec 100 ouvriers. Plus de
+   re-rendu de boutons chaque seconde (un clic pouvait être perdu).
+
+### Tests (headless, tous verts, aucune erreur ni 404)
+
+Tutoriel complet desktop ET téléphone paysage (844×390) : 5 corrections du
+dictatiel, caméra vers le 3ᵉ resto, vitrine, écran de fin, présentation du
+carnet, 3 quêtes réclamées (+800 FCFA, +5 XP). Reprise en plein tutoriel
+(sauvegarde v2). Jeu libre : jauges, améliorations (15 → 12 s, 500 → 550),
+niveau 2 par une vraie collecte + annonces, boutique 3 onglets desktop et
+mobile, premium sans débit, sélecteur (1 type / 2 types / 100 ouvriers).
+Menu (Continuer désactivé sans sauvegarde), éditeur `?edit`.
+
+### Hors scope / à valider
+
+- Onglet Contrats abandonné : les autres restaurants ne sont pas signables.
+- Bennes de quartier (saturation) : affichée « Bientôt » (mécanique du niveau 2).
+- Icônes placeholders : carnet (`book`), visuels des packs premium.
+- Montants des améliorations, packs et quêtes : à équilibrer en jouant.
