@@ -208,6 +208,11 @@ export class DialogueBox {
     this._typing = typing;
   }
 
+  /** Avance comme un clic sur la boîte (ex. clic sur la vitrine de la boutique). */
+  advance() {
+    if (!this.el.hidden) this._advance();
+  }
+
   _advance() {
     if (this._typing) {
       clearInterval(this._typing.timer);

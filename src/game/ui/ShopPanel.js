@@ -60,6 +60,11 @@ export class ShopPanel {
     root.appendChild(this.el);
 
     this.el.addEventListener('click', (e) => {
+      if (this._onShowcaseClick) {
+        // vitrine du tutoriel : rien n'est cliquable, un clic fait avancer Karim
+        this._onShowcaseClick();
+        return;
+      }
       if (e.target.closest('.shop__close')) {
         sfx.close();
         this.close();
@@ -107,6 +112,20 @@ export class ShopPanel {
   setTutorialRecruit(on) {
     this.tutorialRecruit = on;
     if (this.isOpen) this.render();
+  }
+
+  /**
+   * Vitrine du tutoriel (consigne 6, demande du 2026-09-25) : la boutique est
+   * montrée pendant que Karim parle des engins — lecture seule, engins mis en
+   * valeur (anneau pulsé), le reste estompé ; un clic appelle `onClick` (faire
+   * avancer le dialogue).
+   */
+  setShowcase(on, onClick = null) {
+    this._onShowcaseClick = on ? onClick ?? (() => {}) : null;
+    this.el.classList.toggle('is-showcase', on);
+    for (const type of VEHICLE_TYPES) {
+      this.el.querySelector(`[data-item="${type}"]`)?.classList.toggle('tuto-pulse', on);
+    }
   }
 
   /** Bouton « Recruter » (pour la pulsation du tutoriel). */

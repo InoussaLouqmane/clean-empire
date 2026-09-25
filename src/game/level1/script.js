@@ -138,6 +138,8 @@ export const SCRIPT = {
   consigne5Relance: { mode: 'light', lines: LINES.consigne5 },
   consigne5PasAssez: { mode: 'light', lines: LINES.consigne5PasAssez },
   feedback2: { mode: 'light', lines: LINES.feedback2 },
-  consigne6: { mode: 'full', lines: LINES.consigne6 },
+  // 'light' : la boutique est montrée en vitrine pendant la réplique (en haut à
+  // gauche), l'assombrissement et le buste du joueur la cacheraient.
+  consigne6: { mode: 'light', lines: LINES.consigne6 },
   cloture: { mode: 'full', focus: 'city', lines: LINES.cloture },
 };

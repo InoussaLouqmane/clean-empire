@@ -174,10 +174,18 @@ const STEPS = {
     await dialogue.say(SCRIPT.feedback2);
   },
 
-  // Consigne 6 : découvrir les engins (sans achat forcé).
+  // Consigne 6 : découvrir les engins (sans achat forcé). La boutique est
+  // ouverte en VITRINE pendant que Karim en parle : engins mis en valeur,
+  // rien de cliquable, un clic fait avancer le dialogue.
   async consigne6(ctx) {
+    const { dialogue, shop, buildingMenu } = ctx;
     prepareGame(ctx);
-    await ctx.dialogue.say(SCRIPT.consigne6);
+    buildingMenu.close();
+    shop.open();
+    shop.setShowcase(true, () => dialogue.box.advance());
+    await dialogue.say(SCRIPT.consigne6);
+    shop.setShowcase(false);
+    shop.close();
   },
 
   // Clôture : 3 établissements collectés + un investissement.

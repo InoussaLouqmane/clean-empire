@@ -1582,3 +1582,14 @@ ou sous la boîte de dialogue), la caméra le rejoint en 650 ms, zoom du joueur
 conservé. Vaut pour toutes les étapes qui pointent un bâtiment. Vérifié en
 headless : caméra zoomée ×2,2 sur le 2ᵉ resto → 3ᵉ resto à y = 936 px (hors
 écran 720) avant, recentré (640, 270) après. `?debug` expose aussi `camera`.
+
+### Vitrine de la boutique pendant la réplique sur les engins (même jour)
+
+Consigne 6 (« Autre chose dans la boutique : les engins… ») : la boutique
+s'ouvre en VITRINE (`ShopPanel.setShowcase`) — lecture seule, Tricycle et
+Camion entourés de l'anneau pulsé, le reste estompé, pas de doigt. Un clic sur
+la boutique (ou sur la boîte / Entrée) fait avancer Karim ; boutique refermée
+à la fin de la réplique. Groupe passé en format `light` (choix utilisateur :
+sinon l'assombrissement et le buste du joueur cachent la boutique). Vérifié en
+headless : clic sur le bouton du tricycle → rien acheté (0 → 0 FCFA), la
+réplique suivante s'affiche, boutique fermée ; niveau complet, aucune erreur.
