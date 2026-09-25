@@ -1667,3 +1667,18 @@ Menu (Continuer désactivé sans sauvegarde), éditeur `?edit`.
 - Bennes de quartier (saturation) : affichée « Bientôt » (mécanique du niveau 2).
 - Icônes placeholders : carnet (`book`), visuels des packs premium.
 - Montants des améliorations, packs et quêtes : à équilibrer en jouant.
+
+### Option A : finir le niveau 1 fait passer au niveau 2 (même jour)
+
+Incohérence relevée par l'utilisateur (`Downloads/capture_niveau_1_termine.png`) :
+écran « Niveau 1 terminé » mais HUD « 12 XP · Niv. 1 », jauge à 12 %. Deux
+règles indépendantes (fin du niveau = objectif du tutoriel ; « Niv. » = XP,
+100 XP) et un tutoriel qui ne rapporte que 12 XP. Correctif validé (option A) :
+- `completeLevel()` : bonus de fin de niveau qui complète l'XP jusqu'à 100 →
+  niveau 2 (écran de fin : « dont bonus de fin de niveau +88 XP », « Tu passes
+  au niveau 2 », liste des déblocages ; pas d'annonce en doublon).
+- Parties déjà finies sous 100 XP : remises à 100 XP au chargement.
+- Carnet : les quêtes du niveau 2 n'apparaissent qu'une fois les 3 quêtes
+  d'intro réclamées (« À son compte » est alors remplie tout de suite).
+- Vérifié : tutoriel complet, reprise d'une partie à 12 XP (→ Niv. 2), niveau 3
+  à 300 XP avec annonce, boutique, sélecteur, jauges. Aucune erreur.

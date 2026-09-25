@@ -80,9 +80,11 @@ export class QuestPanel {
       ? quests.map((q) => this._row(q)).join('')
       : `<li class="quest-list__empty">${icon('star')}<p>Tous les objectifs du moment sont remplis. De nouveaux arrivent au niveau suivant.</p></li>`;
     const locked = s.lockedQuestCount;
-    this.el.querySelector('[data-q="footer"]').textContent = locked
-      ? `${locked} objectif${locked > 1 ? 's' : ''} à débloquer aux niveaux suivants.`
-      : 'Tu as débloqué tous les objectifs du jeu.';
+    this.el.querySelector('[data-q="footer"]').textContent = !s.introQuestsClaimed
+      ? 'Réclame ces primes pour découvrir tes objectifs suivants.'
+      : locked
+        ? `${locked} objectif${locked > 1 ? 's' : ''} à débloquer aux niveaux suivants.`
+        : 'Tu as débloqué tous les objectifs du jeu.';
   }
 
   _row(q) {

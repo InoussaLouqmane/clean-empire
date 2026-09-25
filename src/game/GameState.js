@@ -41,6 +41,10 @@ export class GameState {
     this.stats = { collections: pastCollections, moneyEarned: 0, repairs: 0, vehicleCollections: 0, ...data.stats };
     this.quests = { completed: [], claimed: [], ...data.quests };
     this.questsIntroDone = data.questsIntroDone ?? false;
+    // Partie finie AVANT le bonus de fin de niveau (option A) : remise à
+    // niveau, sinon elle resterait affichée « Niv. 1 » après « Niveau 1 terminé ».
+    if (this.tutorial.done && this.xp < this._levelTwoXp) this.xp = this._levelTwoXp;
+    this.levelBonusXp = 0; // bonus de fin de niveau 1 (affiché sur l'écran de fin)
     this._lastLevel = this.level;
     // Une réparation en cours au moment de la sauvegarde continue à la reprise
     // (horloge murale) : tick() la termine à l'heure prévue.
@@ -60,6 +64,11 @@ export class GameState {
 
   get xpForNextLevel() {
     return this.levelBounds.next;
+  }
+
+  /** XP totale du niveau 2 (seuil atteint par le bonus de fin de niveau 1). */
+  get _levelTwoXp() {
+    return ECONOMY.progression.xpPerLevel;
   }
 
   /** Effets des améliorations possédées (voir economy.js). */
@@ -299,7 +308,21 @@ export class GameState {
 
   /** Quêtes visibles (niveau atteint) et pas encore réclamées. */
   activeQuests() {
-    return QUESTS.filter((q) => q.level <= this.level && !this.quests.claimed.includes(q.id));
+    return QUESTS.filter((q) => this._questVisible(q) && !this.quests.claimed.includes(q.id));
+  }
+
+  /** Les 3 quêtes d'introduction (niveau 1) sont-elles toutes réclamées ? */
+  get introQuestsClaimed() {
+    return QUESTS.filter((q) => q.level === 1).every((q) => this.quests.claimed.includes(q.id));
+  }
+
+  /**
+   * Visible = niveau atteint ; au-delà du niveau 1, seulement une fois les 3
+   * quêtes d'introduction réclamées (le carnet n'est pas surchargé quand
+   * Karim le présente).
+   */
+  _questVisible(q) {
+    return q.level <= this.level && (q.level === 1 || this.introQuestsClaimed);
   }
 
   isQuestCompleted(id) {
@@ -319,7 +342,7 @@ export class GameState {
 
   /** Quêtes des niveaux suivants (aperçu « à débloquer »). */
   get lockedQuestCount() {
-    return QUESTS.filter((q) => q.level > this.level).length;
+    return QUESTS.filter((q) => !this._questVisible(q)).length;
   }
 
   claimQuest(id) {
@@ -336,7 +359,7 @@ export class GameState {
   /** Marque comme complétées les quêtes visibles dont l'objectif est atteint. */
   _checkQuests() {
     for (const quest of QUESTS) {
-      if (quest.level > this.level || this.isQuestCompleted(quest.id)) continue;
+      if (!this._questVisible(quest) || this.isQuestCompleted(quest.id)) continue;
       if (questValue(this, quest) >= quest.target) {
         this.quests.completed.push(quest.id);
         bus.emit('quest_completed', { id: quest.id });
@@ -363,6 +386,10 @@ export class GameState {
   completeLevel() {
     this.tutorial.done = true;
     this.levelComplete = true;
+    // Bonus de fin de niveau : l'XP est complétée jusqu'au niveau 2.
+    this.levelBonusXp = Math.max(0, this._levelTwoXp - this.xp);
+    this.xp += this.levelBonusXp;
+    this._levelUpFromLevelEnd = true; // l'écran de fin annonce déjà le niveau 2
     this._changed();
   }
 
@@ -374,8 +401,9 @@ export class GameState {
     if (level > this._lastLevel) {
       this._lastLevel = level;
       this._checkQuests(); // les quêtes du nouveau niveau peuvent déjà être remplies
-      bus.emit('level_up', { level });
+      bus.emit('level_up', { level, fromLevelEnd: Boolean(this._levelUpFromLevelEnd) });
     }
+    this._levelUpFromLevelEnd = false;
     this.save();
     bus.emit('state_changed', this);
   }

@@ -77,7 +77,8 @@ export class GameController {
         this.shop.close();
         this.quests.close();
       }),
-      bus.on('level_up', ({ level }) => {
+      bus.on('level_up', ({ level, fromLevelEnd }) => {
+        if (fromLevelEnd) return; // l'écran « Niveau 1 terminé » l'annonce déjà
         sfx.levelUp();
         showToast(this.root, { title: `Niveau ${level} atteint !`, text: unlocksAt(level), kind: 'level' });
       }),
@@ -133,7 +134,8 @@ export class GameController {
       pulse,
       revealCity: () => this._panZoom(this._cityCenter(), 1.1, 1200),
       showBuilding: (id) => this._showBuilding(id),
-      onLevelComplete: () => new Promise((resolve) => showLevelComplete(this.root, this.state, { onContinue: resolve })),
+      onLevelComplete: () =>
+        new Promise((resolve) => showLevelComplete(this.root, this.state, { onContinue: resolve, unlocks: unlocksAt(2) })),
     });
 
     // Carnet de quêtes : présenté par Karim une fois (fin du niveau 1, ou à la
@@ -280,7 +282,7 @@ function pulse(el) {
 }
 
 /** Ce qui se débloque au niveau `level` (texte de l'annonce de montée de niveau). */
-function unlocksAt(level) {
+export function unlocksAt(level) {
   const items = [
     ...Object.values(ECONOMY.units).filter((u) => u.unlockLevel === level).map((u) => u.label),
     ...Object.values(ECONOMY.upgrades).filter((u) => u.unlockLevel === level && !u.comingSoon).map((u) => u.label),

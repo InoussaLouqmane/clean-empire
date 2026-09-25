@@ -1054,9 +1054,22 @@
   height: 20px;
 }
 .level-complete__next {
-  margin: 0 0 16px;
+  margin: 0 0 4px;
   font-weight: 700;
   color: var(--color-primary);
+}
+.level-complete__unlocks {
+  margin: 0 0 16px;
+  font-size: 13px;
+  color: var(--color-text-muted);
+}
+.level-complete__next:last-of-type {
+  margin-bottom: 16px;
+}
+.level-complete__bonus span,
+.level-complete__bonus b {
+  font-size: 13px;
+  color: var(--color-success);
 }
 .level-complete__actions {
   display: flex;

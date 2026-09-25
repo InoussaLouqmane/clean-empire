@@ -49,8 +49,11 @@ export const ECONOMY = {
 
   // XP à gagner PENDANT le niveau n pour passer au niveau n+1 : xpPerLevel × n
   // (100, 200, 300…), soit un total de 100 XP pour le niveau 2, 300 pour le 3,
-  // 600 pour le 4… Activé le 2026-09-25. Le niveau 1 se termine d'abord par
-  // son objectif (tutoriel) : pas de montée de niveau avant.
+  // 600 pour le 4… Activé le 2026-09-25.
+  // Le niveau 1 se termine par son OBJECTIF (tutoriel), pas par l'XP : à ce
+  // moment, un bonus de fin de niveau complète l'XP jusqu'au seuil du niveau 2
+  // (option A validée par l'utilisateur le 2026-09-25 — sinon la jauge disait
+  // « Niv. 1, 12 % » sur l'écran « Niveau 1 terminé »).
   progression: {
     xpPerLevel: 100,
   },
