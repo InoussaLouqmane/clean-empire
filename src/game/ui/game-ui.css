@@ -2027,18 +2027,3 @@
     overflow-y: auto;
   }
 }
-
-/* mécontentement : patience restante / client mécontent (fiche) */
-.building-menu__patience {
-  margin: 0 0 6px;
-  padding: 4px 8px;
-  font-size: 12px;
-  font-weight: 700;
-  color: var(--color-primary);
-  background: rgba(31, 94, 82, 0.1);
-  border-radius: var(--radius-small);
-}
-.building-menu__patience.is-angry {
-  color: var(--palette-cream);
-  background: var(--color-error);
-}

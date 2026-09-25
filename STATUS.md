@@ -1735,20 +1735,3 @@ et mobile ; sélecteur 1 type / 3 types / 100 ouvriers + HUD ; menu ; `?edit`.
   Le code gère glissé + pincement. Piste si ça bloque dans le mode « appareil
   mobile » de Chrome : Phaser détecte le tactile au démarrage → recharger la
   page APRÈS avoir activé ce mode.
-
-### Mécontentement (même jour, version la plus simple validée)
-
-- Bulle « prêt » : VERTE à coche blanche. Chaque client a un temps de
-  patience (`ECONOMY.clients.*.patienceS` : restaurant 30 s, école/marché 35,
-  immeuble/hôtel/cinéma 40, hôpital 45) qui démarre quand il est prêt ; au-delà
-  → bulle ROUGE à visage en colère. Collecter un client mécontent verse
-  l'argent mais fait PERDRE `angryXpPenalty` (5) XP au lieu d'en gagner (texte
-  rouge « −5 XP · client mécontent »), sans jamais repasser sous le seuil du
-  niveau. Fiche : ligne « Patience 30 s » + « Patience : 12 s avant
-  mécontentement » / « Client mécontent : −5 XP à la collecte ».
-- Inactif pendant le tutoriel ET pendant les présentations de Karim (carnet,
-  contrats) : démarre à `setContractsIntroDone()` (`patienceSince`, sauvegardé).
-  Nouveau contrat : patience démarrée à la signature.
-- Hors scope : « 3 retards = contrat résilié » (document de conception).
-- Vérifié : client mécontent −5 XP, patience qui s'écoule, plancher de niveau,
-  tutoriel complet (aucun mécontent pendant le tuto), sélecteur. Aucune erreur.
