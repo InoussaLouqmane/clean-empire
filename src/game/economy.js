@@ -47,11 +47,35 @@ export const ECONOMY = {
     },
   },
 
-  // Seuil d'XP pour atteindre le niveau n+1 : xpPerLevel × n (100, 200, 300…).
-  // Le niveau 1 se termine par son objectif (tutoriel), pas par l'XP.
+  // XP à gagner PENDANT le niveau n pour passer au niveau n+1 : xpPerLevel × n
+  // (100, 200, 300…), soit un total de 100 XP pour le niveau 2, 300 pour le 3,
+  // 600 pour le 4… Activé le 2026-09-25. Le niveau 1 se termine d'abord par
+  // son objectif (tutoriel) : pas de montée de niveau avant.
   progression: {
     xpPerLevel: 100,
   },
+
+  // Améliorations permanentes (onglet « Améliorations » de la boutique) :
+  // achat unique. `effect` est lu par modifiers() ci-dessous — ne jamais
+  // appliquer un effet ailleurs. `comingSoon` : affichée mais pas achetable
+  // (mécanique pas encore dans le jeu).
+  upgrades: {
+    chariots: { label: 'Chariots à roulettes', desc: 'Collecte à pied −3 s', icon: 'worker', cost: 3000, unlockLevel: 1, effect: { walkerSpeedupS: 3 } },
+    sacs: { label: 'Sacs grande capacité', desc: '+10 % de gain par collecte', icon: 'coin', cost: 4000, unlockLevel: 1, effect: { rewardMult: 1.1 } },
+    tournees: { label: 'Tournées optimisées', desc: 'Déchets prêts plus vite : 30 s → 24 s', icon: 'clock', cost: 5000, unlockLevel: 1, effect: { cooldownS: 24 } },
+    carburant: { label: 'Carburant négocié', desc: '−40 % de carburant par collecte en engin', icon: 'leaf', cost: 3500, unlockLevel: 2, effect: { fuelMult: 0.6 } },
+    atelier: { label: 'Atelier mécanique', desc: 'Engins : 15 utilisations avant panne, réparation 2× plus rapide', icon: 'gear', cost: 8000, unlockLevel: 2, effect: { maxUsesBonus: 5, repairTimeMult: 0.5 } },
+    formation: { label: 'Formation des équipes', desc: '+2 XP par collecte', icon: 'star', cost: 6000, unlockLevel: 2, effect: { xpBonus: 2 } },
+    bennes: { label: 'Bennes de quartier', desc: 'Plus de déchets stockés avant saturation — arrive avec la gestion des retards', icon: 'lock', cost: null, unlockLevel: 3, comingSoon: true, effect: {} },
+  },
+
+  // Boutique premium (argent RÉEL, simulée : l'achat affiche « Arrive
+  // bientôt »). Prix en XOF pour ne pas confondre avec les FCFA du jeu.
+  premium: [
+    { id: 'coup_de_pouce', label: 'Coup de pouce', contents: ['+10 000 FCFA en jeu', 'Formation des équipes offerte'], priceXOF: 200 },
+    { id: 'entrepreneur', label: 'Pack Entrepreneur', tag: 'Populaire', contents: ['+30 000 FCFA en jeu', '1 ouvrier offert', '1 tricycle offert'], priceXOF: 1000 },
+    { id: 'ceo', label: 'Pack CEO', tag: 'Meilleure offre', contents: ['1 camion offert', 'Atelier mécanique offert', 'Gains ×2 pendant 30 min'], priceXOF: 2500 },
+  ],
 
   // Clients possibles par type de bâtiment : gain, XP, durée de base (à pied).
   // Au niveau 1, seuls les 3 restaurants du tutoriel sont sous contrat ; les
@@ -76,6 +100,34 @@ export const ECONOMY = {
 
 export const VEHICLE_TYPES = ['tricycle', 'camion'];
 
+/** Niveau atteint avec `xp` au total, et bornes d'XP du niveau (pour la jauge). */
+export function levelInfo(xp) {
+  const per = ECONOMY.progression.xpPerLevel;
+  let level = 1;
+  let floor = 0;
+  while (xp >= floor + per * level) {
+    floor += per * level;
+    level += 1;
+  }
+  return { level, floor, next: floor + per * level };
+}
+
+/** Effets cumulés des améliorations possédées (liste d'ids). */
+export function modifiers(owned = []) {
+  const m = { walkerSpeedupS: 0, rewardMult: 1, cooldownS: ECONOMY.collection.cooldownS, fuelMult: 1, maxUsesBonus: 0, repairTimeMult: 1, xpBonus: 0 };
+  for (const id of owned) {
+    const e = ECONOMY.upgrades[id]?.effect ?? {};
+    m.walkerSpeedupS += e.walkerSpeedupS ?? 0;
+    m.rewardMult *= e.rewardMult ?? 1;
+    if (e.cooldownS) m.cooldownS = Math.min(m.cooldownS, e.cooldownS);
+    m.fuelMult *= e.fuelMult ?? 1;
+    m.maxUsesBonus += e.maxUsesBonus ?? 0;
+    m.repairTimeMult *= e.repairTimeMult ?? 1;
+    m.xpBonus += e.xpBonus ?? 0;
+  }
+  return m;
+}
+
 /** Coût du prochain ouvrier à pied quand on en possède déjà `owned`. */
 export function nextWalkerCost(owned) {
   const w = ECONOMY.units.walker;
@@ -84,14 +136,20 @@ export function nextWalkerCost(owned) {
 }
 
 /** Durée (s) d'une collecte chez un client, avec un type d'unité donné. */
-export function collectionDuration(client, unitType) {
-  const speedup = ECONOMY.units[unitType]?.speedupS ?? 0;
+export function collectionDuration(client, unitType, mods = modifiers()) {
+  const speedup = (ECONOMY.units[unitType]?.speedupS ?? 0) + (unitType === 'walker' ? mods.walkerSpeedupS : 0);
   return Math.max(ECONOMY.collection.minDurationS, client.durationS - speedup);
 }
 
+/** Récompense d'une collecte : { money (net), xp, fuel }, améliorations comprises. */
+export function collectionReward(client, unitType, mods = modifiers()) {
+  const fuel = Math.round((ECONOMY.units[unitType]?.fuel ?? 0) * mods.fuelMult);
+  return { money: Math.round(client.money * mods.rewardMult) - fuel, xp: client.xp + mods.xpBonus, fuel };
+}
+
 /** Gain net (FCFA) d'une collecte : récompense − carburant de l'unité. */
-export function netReward(client, unitType) {
-  return client.money - (ECONOMY.units[unitType]?.fuel ?? 0);
+export function netReward(client, unitType, mods = modifiers()) {
+  return collectionReward(client, unitType, mods).money;
 }
 
 /** Format « 1 500 FCFA ». */

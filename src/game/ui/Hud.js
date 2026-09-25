@@ -66,7 +66,8 @@ export class Hud {
     this.moneyEl.querySelector('b').textContent = formatMoney(s.money);
     this.xpEl.querySelector('.hud-xp__label b').textContent = String(s.xp);
     this.xpEl.querySelector('.hud-xp__label small').textContent = `· Niv. ${s.level}`;
-    this.xpEl.querySelector('.hud-xp__fill').style.width = `${Math.min(100, (100 * s.xp) / s.xpForNextLevel)}%`;
+    const { floor, next } = s.levelBounds; // jauge = progression DANS le niveau
+    this.xpEl.querySelector('.hud-xp__fill').style.width = `${Math.min(100, (100 * (s.xp - floor)) / (next - floor))}%`;
     this.workersEl.querySelector('b').textContent = workers;
     this._renderFleet();
 

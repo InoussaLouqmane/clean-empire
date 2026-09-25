@@ -8,6 +8,9 @@
 
 // v2 (2026-09-24) : unités de collecte (ouvriers + engins) au lieu d'un
 // simple nombre d'ouvriers — les sauvegardes v1 sont ignorées.
+// v3 (2026-09-25) : champs AJOUTÉS (améliorations, compteurs, quêtes) —
+// compatible, même clé : une sauvegarde v2 est reprise avec des valeurs par
+// défaut (voir le constructeur de GameState).
 export const SAVE_KEY = 'clean-ceo-save-v2';
 
 export function loadSave() {

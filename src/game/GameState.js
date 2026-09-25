@@ -1,4 +1,5 @@
-import { ECONOMY, VEHICLE_TYPES, nextWalkerCost, collectionDuration, netReward } from './economy.js';
+import { ECONOMY, VEHICLE_TYPES, nextWalkerCost, collectionDuration, collectionReward, levelInfo, modifiers } from './economy.js';
+import { QUESTS, questValue } from './quests.js';
 import { bus } from './events.js';
 import { writeSave } from './save.js';
 
@@ -33,18 +34,43 @@ export class GameState {
     this.collecting = {};
     this.tutorial = { checkpoint: null, done: false, ...data.tutorial };
     this.levelComplete = data.levelComplete ?? false;
+    // v3 (2026-09-25) : améliorations, compteurs (quêtes), quêtes. Une
+    // sauvegarde v2 est reprise telle quelle avec ces valeurs par défaut.
+    this.upgrades = data.upgrades ?? [];
+    const pastCollections = Object.values(this.buildings).reduce((n, b) => n + (b.collected ?? 0), 0);
+    this.stats = { collections: pastCollections, moneyEarned: 0, repairs: 0, vehicleCollections: 0, ...data.stats };
+    this.quests = { completed: [], claimed: [], ...data.quests };
+    this.questsIntroDone = data.questsIntroDone ?? false;
+    this._lastLevel = this.level;
     // Une réparation en cours au moment de la sauvegarde continue à la reprise
     // (horloge murale) : tick() la termine à l'heure prévue.
   }
 
   // ------------------------------------------------------------- lecture
 
+  /** Niveau : 1 tant que le tutoriel n'est pas fini, puis selon l'XP totale. */
   get level() {
-    return 1;
+    return this.tutorial.done ? levelInfo(this.xp).level : 1;
+  }
+
+  /** Bornes d'XP du niveau actuel : { floor, next } (jauge du HUD). */
+  get levelBounds() {
+    return this.tutorial.done ? levelInfo(this.xp) : { level: 1, floor: 0, next: ECONOMY.progression.xpPerLevel };
   }
 
   get xpForNextLevel() {
-    return ECONOMY.progression.xpPerLevel * this.level;
+    return this.levelBounds.next;
+  }
+
+  /** Effets des améliorations possédées (voir economy.js). */
+  get mods() {
+    return modifiers(this.upgrades);
+  }
+
+  /** Utilisations avant panne d'un type d'engin (améliorations comprises). */
+  maxUses(type) {
+    const max = ECONOMY.units[type].maxUses;
+    return max ? max + this.mods.maxUsesBonus : 0;
   }
 
   get walkerCount() {
@@ -62,7 +88,7 @@ export class GameState {
   unitStatus(unit, now = Date.now()) {
     if (Object.values(this.collecting).some((c) => c.unitId === unit.id)) return 'busy';
     if (unit.repairUntil && now < unit.repairUntil) return 'repairing';
-    const max = ECONOMY.units[unit.type].maxUses;
+    const max = this.maxUses(unit.type);
     if (max && unit.uses >= max) return 'broken';
     return 'available';
   }
@@ -73,7 +99,7 @@ export class GameState {
 
   /** État d'un engin, 0..1 (1 = neuf). Toujours 1 pour un ouvrier à pied. */
   unitCondition(unit) {
-    const max = ECONOMY.units[unit.type].maxUses;
+    const max = this.maxUses(unit.type);
     return max ? Math.max(0, 1 - unit.uses / max) : 1;
   }
 
@@ -136,11 +162,11 @@ export class GameState {
   }
 
   collectionDurationFor(id, unitType) {
-    return collectionDuration(this.client(id), unitType);
+    return collectionDuration(this.client(id), unitType, this.mods);
   }
 
   netRewardFor(id, unitType) {
-    return netReward(this.client(id), unitType);
+    return collectionReward(this.client(id), unitType, this.mods).money;
   }
 
   // ---------------------------------------------------------- écriture
@@ -167,18 +193,20 @@ export class GameState {
       if (now < c.endsAt) continue;
       delete this.collecting[id];
       const unit = this.units.find((u) => u.id === c.unitId);
-      const client = this.client(id);
-      const fuel = ECONOMY.units[unit?.type]?.fuel ?? 0;
-      const reward = { money: client.money - fuel, xp: client.xp, fuel };
+      const mods = this.mods;
+      const reward = collectionReward(this.client(id), unit?.type ?? 'walker', mods);
       this.money += reward.money;
       this.xp += reward.xp;
-      if (unit && ECONOMY.units[unit.type].maxUses) {
+      this.stats.collections += 1;
+      this.stats.moneyEarned += reward.money;
+      if (unit && unit.type !== 'walker') this.stats.vehicleCollections += 1;
+      if (unit && this.maxUses(unit.type)) {
         unit.uses += 1;
-        if (unit.uses >= ECONOMY.units[unit.type].maxUses) bus.emit('unit_broken', { unitId: unit.id });
+        if (unit.uses >= this.maxUses(unit.type)) bus.emit('unit_broken', { unitId: unit.id });
       }
       const b = (this.buildings[id] ??= { collected: 0, cooldownUntil: 0 });
       b.collected += 1;
-      b.cooldownS = ECONOMY.collection.cooldownS;
+      b.cooldownS = mods.cooldownS;
       b.cooldownUntil = now + b.cooldownS * 1000;
       bus.emit('collection_finished', { id, reward });
       this._changed();
@@ -237,10 +265,88 @@ export class GameState {
     const unit = this.units.find((u) => u.id === unitId);
     const spec = ECONOMY.units[unit.type];
     this.money -= spec.repairCost;
-    unit.repairUntil = now + spec.repairS * 1000;
+    unit.repairUntil = now + Math.round(spec.repairS * this.mods.repairTimeMult) * 1000;
+    this.stats.repairs += 1;
     bus.emit('unit_repair_started', { unitId });
     this._changed();
     return true;
+  }
+
+  // ------------------------------------------------------ améliorations
+
+  /** Raison pour laquelle l'amélioration `id` ne peut pas être achetée, ou null. */
+  upgradeBlocker(id) {
+    const u = ECONOMY.upgrades[id];
+    if (!u) return 'Inconnue';
+    if (this.upgrades.includes(id)) return 'Déjà achetée';
+    if (u.comingSoon) return 'Bientôt disponible';
+    if (!this.tutorial.done) return 'Après le tutoriel';
+    if (u.unlockLevel > this.level) return `Débloquée au niveau ${u.unlockLevel}`;
+    if (this.money < u.cost) return "Pas assez d'argent";
+    return null;
+  }
+
+  buyUpgrade(id) {
+    if (this.upgradeBlocker(id)) return false;
+    this.money -= ECONOMY.upgrades[id].cost;
+    this.upgrades.push(id);
+    bus.emit('upgrade_bought', { id });
+    this._changed();
+    return true;
+  }
+
+  // ------------------------------------------------------------- quêtes
+
+  /** Quêtes visibles (niveau atteint) et pas encore réclamées. */
+  activeQuests() {
+    return QUESTS.filter((q) => q.level <= this.level && !this.quests.claimed.includes(q.id));
+  }
+
+  isQuestCompleted(id) {
+    return this.quests.completed.includes(id);
+  }
+
+  /** Progression affichée d'une quête : { value, target } (plafonnée). */
+  questProgress(quest) {
+    const value = this.isQuestCompleted(quest.id) ? quest.target : Math.min(quest.target, questValue(this, quest));
+    return { value, target: quest.target };
+  }
+
+  /** Nombre de quêtes complétées mais pas encore réclamées (badge du HUD). */
+  get claimableQuestCount() {
+    return this.activeQuests().filter((q) => this.isQuestCompleted(q.id)).length;
+  }
+
+  /** Quêtes des niveaux suivants (aperçu « à débloquer »). */
+  get lockedQuestCount() {
+    return QUESTS.filter((q) => q.level > this.level).length;
+  }
+
+  claimQuest(id) {
+    const quest = QUESTS.find((q) => q.id === id);
+    if (!quest || !this.isQuestCompleted(id) || this.quests.claimed.includes(id)) return false;
+    this.money += quest.reward.money;
+    this.xp += quest.reward.xp;
+    this.quests.claimed.push(id);
+    bus.emit('quest_claimed', { id, reward: quest.reward });
+    this._changed();
+    return true;
+  }
+
+  /** Marque comme complétées les quêtes visibles dont l'objectif est atteint. */
+  _checkQuests() {
+    for (const quest of QUESTS) {
+      if (quest.level > this.level || this.isQuestCompleted(quest.id)) continue;
+      if (questValue(this, quest) >= quest.target) {
+        this.quests.completed.push(quest.id);
+        bus.emit('quest_completed', { id: quest.id });
+      }
+    }
+  }
+
+  setQuestsIntroDone() {
+    this.questsIntroDone = true;
+    this._changed();
   }
 
   _addUnit(type) {
@@ -263,13 +369,20 @@ export class GameState {
   // ----------------------------------------------------------- interne
 
   _changed() {
+    this._checkQuests();
+    const level = this.level;
+    if (level > this._lastLevel) {
+      this._lastLevel = level;
+      this._checkQuests(); // les quêtes du nouveau niveau peuvent déjà être remplies
+      bus.emit('level_up', { level });
+    }
     this.save();
     bus.emit('state_changed', this);
   }
 
   save() {
     writeSave({
-      version: 2,
+      version: 3,
       playerName: this.playerName,
       money: this.money,
       xp: this.xp,
@@ -278,6 +391,10 @@ export class GameState {
       buildings: this.buildings,
       tutorial: this.tutorial,
       levelComplete: this.levelComplete,
+      upgrades: this.upgrades,
+      stats: this.stats,
+      quests: this.quests,
+      questsIntroDone: this.questsIntroDone,
     });
   }
 }

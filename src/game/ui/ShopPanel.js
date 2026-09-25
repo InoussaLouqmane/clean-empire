@@ -170,7 +170,7 @@ export class ShopPanel {
           .map((u) => {
             const status = s.unitStatus(u, now);
             const spec = ECONOMY.units[u.type];
-            const left = spec.maxUses - u.uses;
+            const left = s.maxUses(u.type) - u.uses;
             let action;
             if (status === 'broken') {
               const rb = s.repairBlocker(u.id, now);

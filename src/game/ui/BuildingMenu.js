@@ -1,5 +1,5 @@
 import { icon } from '../../menu/icons.js';
-import { ECONOMY, formatMoney, collectionDuration, netReward } from '../economy.js';
+import { ECONOMY, formatMoney } from '../economy.js';
 import { bus } from '../events.js';
 import { sfx } from '../sfx.js';
 import { worldToScreen } from '../screen.js';
@@ -84,7 +84,7 @@ export class BuildingMenu {
       this.el.innerHTML = `${close}
         <p class="building-menu__kicker">Contrat actif · ${c.type}</p>
         <h3 class="building-menu__title">${b.name}</h3>
-        ${stats(c)}
+        ${stats(c, this.state)}
         <p class="building-menu__section">Qui envoyer ?</p>
         <ul class="unit-picker" data-bm="units"></ul>
         <button type="button" class="game-btn game-btn--primary" data-bm="collect">
@@ -100,8 +100,8 @@ export class BuildingMenu {
       this.el.innerHTML = `${close}
         <p class="building-menu__kicker building-menu__kicker--locked">${icon('lock')} Pas encore de contrat</p>
         <h3 class="building-menu__title">${b.name}</h3>
-        ${stats(c)}
-        <p class="building-menu__locked">${c.type} · client disponible au niveau ${c.unlockLevel}.</p>
+        ${stats(c, this.state)}
+        <p class="building-menu__locked">${c.type} · ${this.state.level >= c.unlockLevel ? 'nouveaux contrats bientôt disponibles' : `client disponible au niveau ${c.unlockLevel}`}.</p>
         <button type="button" class="game-btn" aria-disabled="true">
           <span class="game-btn__label">${icon('lock')} Verrouillé</span>
         </button>`;
@@ -136,9 +136,10 @@ export class BuildingMenu {
         const status = s.unitStatus(u, now);
         const ok = status === 'available';
         const spec = ECONOMY.units[u.type];
-        const dur = collectionDuration(b.client, u.type);
-        const net = netReward(b.client, u.type);
-        const fuel = spec.fuel ? ` <small>(carburant −${spec.fuel})</small>` : '';
+        const dur = s.collectionDurationFor(b.id, u.type);
+        const net = s.netRewardFor(b.id, u.type);
+        const fuelCost = Math.round(spec.fuel * s.mods.fuelMult);
+        const fuel = fuelCost ? ` <small>(carburant −${fuelCost})</small>` : '';
         return `
         <li class="unit-row${u.id === this.selectedUnitId ? ' is-selected' : ''}" data-unit="${u.id}"
             role="radio" aria-checked="${u.id === this.selectedUnitId}" aria-disabled="${!ok}" tabindex="${ok ? 0 : -1}">
@@ -196,11 +197,14 @@ export class BuildingMenu {
   }
 }
 
-function stats(c) {
+/** Récompense, XP et durée à pied, améliorations comprises. */
+function stats(c, state) {
+  const m = state.mods;
+  const walkerS = Math.max(ECONOMY.collection.minDurationS, c.durationS - m.walkerSpeedupS);
   return `
     <dl class="building-menu__stats">
-      <div>${icon('coin')}<dt>Récompense</dt><dd>${formatMoney(c.money)}</dd></div>
-      <div>${icon('star')}<dt>Expérience</dt><dd>+${c.xp} XP</dd></div>
-      <div>${icon('clock')}<dt>Collecte (à pied)</dt><dd>${c.durationS} s</dd></div>
+      <div>${icon('coin')}<dt>Récompense</dt><dd>${formatMoney(Math.round(c.money * m.rewardMult))}</dd></div>
+      <div>${icon('star')}<dt>Expérience</dt><dd>+${c.xp + m.xpBonus} XP</dd></div>
+      <div>${icon('clock')}<dt>Collecte (à pied)</dt><dd>${walkerS} s</dd></div>
     </dl>`;
 }
