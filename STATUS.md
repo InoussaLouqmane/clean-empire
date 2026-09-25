@@ -1517,3 +1517,20 @@ Retours de l'utilisateur sur la boîte ; livraison des portraits.
 - Vérifié en headless avec réseau ralenti : les phrases défilent, aucune
   erreur. Sur une connexion rapide, le chargement peut être trop court pour
   en voir plus d'une (le jeu est déjà pré-chargé pendant le menu).
+
+---
+
+## 2026-09-25 — Bouton « Menu » en jeu
+
+- `src/game/ui/GameMenu.js` : bouton (roue crantée) en haut à droite, au-dessus
+  du dialogue. Panneau : Son (Activé / Coupé), Volume, Reprendre, Retour à
+  l'accueil. Réglages dans les mêmes clés que le menu principal
+  (`clean-ceo-muted`, `clean-ceo-volume`), appliqués tout de suite aux effets.
+- Retour à l'accueil = sauvegarde + rechargement : le menu principal propose
+  « Continuer ». Si une collecte est en cours (non sauvegardée), confirmation
+  dans le panneau (« Quitter quand même »). Échap ou clic à côté ferment.
+- Entrée / Espace dans le menu ne font plus avancer le dialogue.
+- Vérifié en headless : ouverture, coupure du son, volume, Échap,
+  confirmation, retour au menu avec « Continuer ». Aucune erreur.
+- ⚠️ Le disque C: était plein (0 Mo libre) pendant les tests : 14 profils
+  Chrome temporaires laissés par mes tests headless (329 Mo) supprimés.

@@ -1186,3 +1186,105 @@
 .guide-finger.is-up .px-icon {
   rotate: 180deg;
 }
+
+/* ------------------------------------------------------ menu en jeu */
+/* Bouton « Menu » en haut à droite (GameMenu.js) : son + retour accueil. */
+.game-ui .game-menu {
+  position: absolute;
+  top: max(12px, env(safe-area-inset-top));
+  right: max(14px, env(safe-area-inset-right));
+  z-index: 7; /* au-dessus du dialogue et de son assombrissement */
+  display: grid;
+  justify-items: end;
+  gap: 8px;
+}
+.game-menu__toggle {
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  color: var(--color-text-inverse);
+  background: var(--color-surface-dark);
+  border: var(--border-width) solid var(--color-border);
+  border-radius: var(--radius-small);
+  box-shadow:
+    inset 0 0 0 var(--ring-width) var(--color-border-accent),
+    var(--shadow-small);
+  cursor: pointer;
+}
+.game-menu__toggle:hover,
+.game-menu__toggle[aria-expanded='true'] {
+  background: var(--color-primary);
+}
+.game-menu__toggle .px-icon {
+  width: 24px;
+  height: 24px;
+}
+.game-menu__panel {
+  display: grid;
+  gap: 10px;
+  width: 240px;
+  padding: 12px 14px 14px;
+  color: var(--color-text);
+  background: var(--color-surface);
+  border: var(--border-width) solid var(--color-border);
+  border-radius: var(--radius-medium);
+  box-shadow:
+    inset 0 0 0 var(--ring-width) var(--palette-beige),
+    0 5px 0 0 var(--palette-dark);
+  animation: game-fade-in 160ms var(--ease-out) both;
+}
+.game-menu__title {
+  margin: 0;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--color-text-muted);
+}
+.game-menu__row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  font-size: 14px;
+  font-weight: 700;
+}
+.game-menu__row input[type='range'] {
+  width: 130px;
+  accent-color: var(--color-primary);
+}
+.game-menu__mute {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 32px;
+  padding: 0 10px;
+  font: 700 13px/1 var(--font-ui);
+  color: var(--color-text-inverse);
+  background: var(--color-primary);
+  border: 2px solid var(--color-border);
+  border-radius: var(--radius-small);
+  cursor: pointer;
+}
+.game-menu__mute[aria-pressed='false'] {
+  background: var(--palette-brown-grey);
+}
+.game-menu__mute .px-icon {
+  width: 18px;
+  height: 18px;
+}
+.game-menu__panel .game-btn {
+  width: 100%;
+}
+.game-menu__confirm {
+  display: grid;
+  gap: 8px;
+}
+.game-menu__confirm p {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.35;
+  color: var(--color-error);
+}

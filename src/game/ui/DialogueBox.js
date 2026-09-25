@@ -92,6 +92,7 @@ export class DialogueBox {
     this.el.addEventListener('click', () => this._advance());
     this._onKey = (e) => {
       if (this.el.hidden) return;
+      if (e.target.closest?.('.game-menu')) return; // Entrée/Espace dans le menu en jeu
       if (e.key === 'Enter' || e.key === ' ') {
         e.preventDefault();
         this._advance();

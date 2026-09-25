@@ -13,6 +13,7 @@ import { ShopPanel } from './ui/ShopPanel.js';
 import { DialogueBox } from './ui/DialogueBox.js';
 import { Guide } from './ui/Guide.js';
 import { askPlayerName } from './ui/NameInput.js';
+import { GameMenu } from './ui/GameMenu.js';
 import { showLevelComplete } from './ui/LevelComplete.js';
 import { CONTRACTS, KARIM_HOUSE } from './level1/script.js';
 import { runLevel1 } from './level1/Level1Tutorial.js';
@@ -52,6 +53,7 @@ export class GameController {
     this.shop = new ShopPanel(this.root, this.state);
     this.guide = new Guide(this.root, scene, this.buildings);
     this.dialogueBox = new DialogueBox(this.root);
+    this.gameMenu = new GameMenu(this.root, this.state);
     this.dialogue = new DialogueManager(this.dialogueBox, this.state, { focus: (t) => this._focus(t) });
 
     // Ouvrir la boutique ferme la fiche d'un bâtiment (et inversement).
@@ -177,6 +179,7 @@ export class GameController {
     this.shop.destroy();
     this.guide.destroy();
     this.dialogueBox.destroy();
+    this.gameMenu.destroy();
     this.root.remove();
   }
 }
