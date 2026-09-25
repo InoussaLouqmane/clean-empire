@@ -227,6 +227,8 @@ pour le détail exact et la prochaine étape.
 - Tous les bâtiments sont cliquables (`buildingRegistry.js` = noms et
   clients). Les clics Phaser sur un bâtiment ne comptent que si leur cible
   DOM est le canvas (sinon un clic sur l'UI au-dessus « traverse »).
-- Dialogue : groupes `SCRIPT` avec `mode` ('full' | 'light') et `focus` ;
+- Dialogue (refait le 2026-09-25, façon Stardew) : boîte en bas, texte
+  TOUJOURS aligné à gauche, bustes joueur à gauche / Karim à droite (les deux
+  en 'full', seul celui qui parle en 'light'). Groupes `SCRIPT` avec `mode` ('full' | 'light') et `focus` ;
   portraits `public/assets/characters/karim_<expression>.png` et
   `joueur_<expression>.png` (repli automatique si absents).

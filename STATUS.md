@@ -1483,7 +1483,24 @@ Boucle de mécontentement (retards, seuils, pénalités).
   quels.
 - Le QG n'a pas encore de rôle de jeu (point de départ des unités à venir).
 
+### Boîtes de dialogue refaites (feu vert utilisateur, même jour)
+
+Références `Downloads/diagBox1-3.png` (Stardew, Civ, Kyra). Correction d'un
+malentendu : « Karim à droite » = son PORTRAIT à droite, le texte se lit
+toujours de gauche à droite (il était aligné à droite pour Karim).
+- Boîte large en bas de l'écran, texte à gauche, ▼ clignotant quand la
+  réplique est affichée (remplace le bouton NEXT ; clic / Entrée / Espace).
+- Bustes façon Penny posés sur le haut de la boîte : joueur à gauche, Karim à
+  droite. Mode `full` : les deux, celui qui écoute assombri ; mode `light` :
+  seul celui qui parle, plus petit (choix utilisateur).
+- Nom en étiquette sur le bord haut, du côté de celui qui parle.
+- Placeholders : Karim = `karim.png` actuel ; joueur = silhouette + initiale.
+  Portraits attendus : bustes 4:5 (ex. 512×640), fond transparent, à déclarer
+  dans `AVAILABLE_PORTRAITS` (`DialogueBox.js`) ; `joueur_neutre` sert pour
+  le joueur quand il n'a pas encore parlé.
+- Vérifié en headless à 1280×720 et 844×390 (règle `max-height: 500px`).
+  Aucune erreur console. Niveau pas rejoué en entier cette session.
+
 ### Prochaine étape
 
-Refonte des boîtes de dialogue (références `Downloads/diagBox1-3.png`) —
-proposition envoyée, en attente du feu vert.
+Retours de l'utilisateur sur la boîte ; livraison des portraits.

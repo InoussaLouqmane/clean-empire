@@ -30,7 +30,7 @@ export class DialogueManager {
     const name = this.state.playerName || 'Ange';
     const text = line.text.replaceAll('{PRENOM}', name);
     const isKarim = line.speaker === 'karim';
-    return { ...line, text, isKarim, speaker: isKarim ? 'Karim' : name };
+    return { ...line, text, isKarim, speaker: isKarim ? 'Karim' : name, playerName: name };
   }
 
   /**

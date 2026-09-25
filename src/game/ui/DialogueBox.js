@@ -20,14 +20,28 @@ function slug(expression) {
     .replace(/[^a-z0-9]+/g, '_');
 }
 
+// Silhouette de buste (placeholder tant que le portrait n'est pas livré) :
+// tête + épaules, l'initiale du personnage posée sur la tête.
+const BUST_PLACEHOLDER_SVG = `
+  <svg viewBox="0 0 160 200" aria-hidden="true">
+    <path d="M8 200 C8 150 36 128 80 128 C124 128 152 150 152 200 Z" />
+    <circle cx="80" cy="78" r="46" />
+  </svg>`;
+
 /**
- * Boîte de dialogue, TOUJOURS CENTRÉE (refonte niveau 1). Deux formats :
- * - 'full'  : grande boîte + écran assombri (la caméra est gérée par le
- *             DialogueManager) — moments clés, première explication ;
- * - 'light' : même position, plus compacte, sans assombrissement — répliques
- *             courtes, pour garder le rythme.
- * Karim à DROITE, le joueur à GAUCHE, texte à côté de l'avatar qui parle.
- * NEXT toujours visible ; un clic termine la machine à écrire puis avance.
+ * Boîte de dialogue (refonte du 2026-09-25, références diagBox1-3 fournies
+ * par l'utilisateur, façon Stardew Valley) :
+ * - boîte large EN BAS de l'écran, texte toujours aligné à gauche ;
+ * - portraits en BUSTE posés sur le haut de la boîte : joueur à gauche,
+ *   Karim à droite ;
+ * - nom dans une étiquette sur le bord haut, du côté de celui qui parle ;
+ * - ▼ clignotant quand la réplique est entièrement affichée.
+ * Deux formats :
+ * - 'full'  : écran assombri (caméra gérée par le DialogueManager), les DEUX
+ *             bustes, celui qui ne parle pas en retrait ;
+ * - 'light' : sans assombrissement, seul le buste de celui qui parle, plus
+ *             petit.
+ * Un clic (ou Entrée / Espace) termine la machine à écrire puis avance.
  *
  * + « Karim discret » : petit portrait en bas à droite, visible quand la
  * boîte est cachée pendant que le joueur agit.
@@ -39,21 +53,23 @@ export class DialogueBox {
     this.backdrop.hidden = true;
     root.appendChild(this.backdrop);
 
+    const bust = (who) => `
+      <figure class="dialogue__bust dialogue__bust--${who}" aria-hidden="true">
+        <img alt="" hidden />
+        <div class="dialogue__placeholder">${BUST_PLACEHOLDER_SVG}<span class="dialogue__initial"></span></div>
+      </figure>`;
+
     this.el = document.createElement('div');
     this.el.className = 'dialogue';
     this.el.hidden = true;
     this.el.innerHTML = `
-      <div class="dialogue__avatar dialogue__avatar--player" aria-hidden="true">
-        <img alt="" hidden /><span class="dialogue__initial"></span>
-      </div>
-      <div class="dialogue__body">
+      ${bust('player')}
+      ${bust('karim')}
+      <div class="dialogue__box">
         <p class="dialogue__speaker"></p>
         <p class="dialogue__text" aria-live="polite"></p>
-        <button type="button" class="game-btn game-btn--primary dialogue__next">
-          <span class="game-btn__label">NEXT</span>
-        </button>
-      </div>
-      <div class="dialogue__avatar dialogue__avatar--karim" aria-hidden="true"><img alt="" /></div>`;
+        <button type="button" class="dialogue__more" aria-label="Suite">▼</button>
+      </div>`;
     root.appendChild(this.el);
 
     this.corner = document.createElement('div');
@@ -62,9 +78,11 @@ export class DialogueBox {
     this.corner.innerHTML = `<img src="${KARIM_FALLBACK}" alt="Karim" /><span>Karim</span>`;
     root.appendChild(this.corner);
 
-    this.karimImg = this.el.querySelector('.dialogue__avatar--karim img');
-    this.playerImg = this.el.querySelector('.dialogue__avatar--player img');
-    this.playerInitial = this.el.querySelector('.dialogue__initial');
+    this.busts = {
+      karim: this._bustRefs(this.el.querySelector('.dialogue__bust--karim')),
+      player: this._bustRefs(this.el.querySelector('.dialogue__bust--player')),
+    };
+    this.busts.karim.initial.textContent = 'K';
     this.speakerEl = this.el.querySelector('.dialogue__speaker');
     this.textEl = this.el.querySelector('.dialogue__text');
 
@@ -82,6 +100,16 @@ export class DialogueBox {
     window.addEventListener('keydown', this._onKey);
   }
 
+  _bustRefs(figure) {
+    return {
+      figure,
+      img: figure.querySelector('img'),
+      placeholder: figure.querySelector('.dialogue__placeholder'),
+      initial: figure.querySelector('.dialogue__initial'),
+      url: undefined,
+    };
+  }
+
   /** Format de la boîte : 'full' (écran assombri) ou 'light'. */
   setMode(mode) {
     this.mode = mode;
@@ -91,68 +119,77 @@ export class DialogueBox {
   }
 
   /**
-   * Affiche une réplique ; résout la promesse quand le joueur clique NEXT sur
-   * le texte entièrement affiché.
-   * @param {{ speaker: string, isKarim: boolean, expression?: string, text: string }} line
+   * Affiche une réplique ; résout la promesse quand le joueur avance sur le
+   * texte entièrement affiché.
+   * @param {{ speaker: string, isKarim: boolean, expression?: string, text: string, playerName?: string }} line
    */
-  say({ speaker, isKarim, expression, text }) {
+  say({ speaker, isKarim, expression, text, playerName }) {
     this.show();
+    const changed = !this.el.classList.contains(isKarim ? 'is-karim' : 'is-player');
     this.el.classList.toggle('is-karim', isKarim);
     this.el.classList.toggle('is-player', !isKarim);
     this.el.dataset.expression = expression ?? '';
-    if (isKarim) {
-      const key = `karim_${slug(expression)}`;
-      this._setPortrait(this.karimImg, AVAILABLE_PORTRAITS.has(key) ? `${CHAR_DIR}/${key}.png` : KARIM_FALLBACK, KARIM_FALLBACK);
+
+    // Initiale du joueur, affichée aussi quand c'est Karim qui parle (full).
+    const name = playerName ?? (isKarim ? '' : speaker);
+    if (name) this.busts.player.initial.textContent = name.trim().charAt(0).toUpperCase();
+
+    const who = isKarim ? 'karim' : 'player';
+    const key = `${isKarim ? 'karim' : 'joueur'}_${slug(expression)}`;
+    const fallback = isKarim ? KARIM_FALLBACK : null;
+    this._setBust(this.busts[who], AVAILABLE_PORTRAITS.has(key) ? `${CHAR_DIR}/${key}.png` : fallback, fallback);
+    // Le joueur n'a pas encore parlé : sa silhouette (ou son portrait neutre).
+    if (isKarim && this.busts.player.url === undefined) {
+      const neutral = AVAILABLE_PORTRAITS.has('joueur_neutre') ? `${CHAR_DIR}/joueur_neutre.png` : null;
+      this._setBust(this.busts.player, neutral, null);
     }
-    else this._setPlayerPortrait(expression, speaker);
+
+    if (changed) {
+      const fig = this.busts[who].figure;
+      fig.classList.remove('is-entering');
+      void fig.offsetWidth; // relance l'animation
+      fig.classList.add('is-entering');
+    }
+
     this.speakerEl.textContent = speaker;
     this._type(text);
     return new Promise((resolve) => (this._resolve = resolve));
   }
 
-  _setPortrait(img, url, fallback) {
-    img.onerror = null;
-    if (missing.has(url)) {
-      img.src = fallback;
+  /** Portrait réel si `url` se charge, sinon `fallback`, sinon silhouette. */
+  _setBust(bust, url, fallback) {
+    const pick = (u) => (u && !missing.has(u) ? u : null);
+    const target = pick(url) ?? pick(fallback);
+    if (!target) {
+      bust.url = null;
+      bust.img.hidden = true;
+      bust.placeholder.hidden = false;
       return;
     }
-    img.onerror = () => {
-      missing.add(url);
-      img.onerror = null;
-      img.src = fallback;
+    if (bust.url === target) return;
+    bust.url = target;
+    bust.img.onload = () => {
+      bust.img.hidden = false;
+      bust.placeholder.hidden = true;
     };
-    img.src = url;
-  }
-
-  _setPlayerPortrait(expression, name) {
-    const key = `joueur_${slug(expression)}`;
-    const url = `${CHAR_DIR}/${key}.png`;
-    if (!AVAILABLE_PORTRAITS.has(key)) missing.add(url);
-    this.playerInitial.textContent = (name || '?').trim().charAt(0).toUpperCase();
-    const showInitial = () => {
-      this.playerImg.hidden = true;
-      this.playerInitial.hidden = false;
+    bust.img.onerror = () => {
+      missing.add(target);
+      bust.img.onerror = null;
+      bust.url = undefined;
+      this._setBust(bust, fallback, null);
     };
-    if (missing.has(url)) return showInitial();
-    this.playerImg.onload = () => {
-      this.playerImg.hidden = false;
-      this.playerInitial.hidden = true;
-    };
-    this.playerImg.onerror = () => {
-      missing.add(url);
-      showInitial();
-    };
-    showInitial();
-    this.playerImg.src = url;
+    bust.img.src = target;
   }
 
   _type(text) {
     clearInterval(this._typing?.timer);
     this.textEl.textContent = '';
+    this.el.classList.add('is-typing');
     const reduceMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
     if (reduceMotion) {
       this.textEl.textContent = text;
       this._typing = null;
+      this.el.classList.remove('is-typing');
       return;
     }
     let i = 0;
@@ -164,6 +201,7 @@ export class DialogueBox {
       if (i >= text.length) {
         clearInterval(typing.timer);
         this._typing = null;
+        this.el.classList.remove('is-typing');
       }
     }, TYPE_MS_PER_CHAR);
     this._typing = typing;
@@ -174,6 +212,7 @@ export class DialogueBox {
       clearInterval(this._typing.timer);
       this.textEl.textContent = this._typing.text;
       this._typing = null;
+      this.el.classList.remove('is-typing');
       return;
     }
     if (this._resolve) {
