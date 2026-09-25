@@ -38,8 +38,10 @@ const notYetCollected = (state) => ALL.filter((id) => state.collectedCount(id) =
 function target(ctx, ids) {
   const list = Array.isArray(ids) ? ids : [ids];
   ctx.buildings.setHighlight(list);
-  if (list.length) ctx.guide.point({ building: list[0] });
-  else ctx.guide.clear();
+  if (list.length) {
+    ctx.guide.point({ building: list[0] });
+    ctx.showBuilding?.(list[0]); // la caméra le rejoint s'il n'est pas visible
+  } else ctx.guide.clear();
 }
 
 /** Pointe un élément d'UI (doigt + pulsation) ; renvoie l'arrêt. */

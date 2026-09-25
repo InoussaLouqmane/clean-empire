@@ -1571,3 +1571,14 @@ Retours de l'utilisateur sur la boîte ; livraison des portraits.
 ### Prochaine étape
 
 Test par l'utilisateur en local, puis push (déploiement Vercel).
+
+### Correctif (retour utilisateur, même jour) : caméra vers le bâtiment pointé
+
+Après « Pas encore assez », le doigt pointait le 3ᵉ resto HORS ÉCRAN si le
+joueur avait zoomé / déplacé la vue (rien ne bougeait la caméra). Désormais
+`target()` (Level1Tutorial) appelle `ctx.showBuilding(id)` →
+`GameController._showBuilding()` : si le bâtiment n'est pas bien visible (bords,
+ou sous la boîte de dialogue), la caméra le rejoint en 650 ms, zoom du joueur
+conservé. Vaut pour toutes les étapes qui pointent un bâtiment. Vérifié en
+headless : caméra zoomée ×2,2 sur le 2ᵉ resto → 3ᵉ resto à y = 936 px (hors
+écran 720) avant, recentré (640, 270) après. `?debug` expose aussi `camera`.

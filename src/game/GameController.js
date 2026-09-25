@@ -23,6 +23,7 @@ const DEFAULT_PLAYER_NAME = 'Ange'; // si le joueur ne saisit pas de prénom (d�
 const FOCUS_ZOOM = 1.6; // zoom des dialogues « complets » vers un bâtiment
 const FOCUS_SCREEN_Y = 0.36; // la cible est cadrée dans le tiers haut (la bulle est au centre)
 const FOCUS_MS = 700;
+const SHOW_MS = 650; // caméra qui rejoint le bâtiment pointé par le doigt
 
 /**
  * Le jeu proprement dit, posé sur la carte de MapScene : état de la partie,
@@ -71,6 +72,7 @@ export class GameController {
         state: this.state,
         buildings: this.cityBuildings,
         guide: this.guide,
+        camera: scene.cameras.main,
         buildingScreenPos: (id) => {
           const p = this.buildings.worldPositionOf(id);
           return p && worldToScreen(scene.cameras.main, p.x, p.y - 20);
@@ -98,6 +100,7 @@ export class GameController {
       guide: this.guide,
       pulse,
       revealCity: () => this._panZoom(this._cityCenter(), 1.1, 1200),
+      showBuilding: (id) => this._showBuilding(id),
       onLevelComplete: () => showLevelComplete(this.root, this.state, { onContinue: () => {} }),
     });
 
@@ -142,6 +145,24 @@ export class GameController {
     const dy = ((0.5 - FOCUS_SCREEN_Y) * cam.height) / z;
     await this._panZoom({ x: p.x, y: p.y + dy }, zoom, FOCUS_MS);
     return () => this._panZoom(before, before.zoom, FOCUS_MS);
+  }
+
+  /**
+   * Ramène la caméra sur un bâtiment s'il n'est pas bien visible (hors écran,
+   * sous la boîte de dialogue ou collé au bord) — pan seul, le zoom du joueur
+   * est gardé. Retour utilisateur du 2026-09-25 : après « Pas encore assez »,
+   * le doigt pointait le 3e resto hors écran.
+   */
+  _showBuilding(id) {
+    const c = this.buildings.centerOf(id);
+    if (!c) return;
+    const cam = this.scene.cameras.main;
+    const p = worldToScreen(cam, c.x, c.y);
+    const inX = p.x > cam.width * 0.12 && p.x < cam.width * 0.88;
+    const inY = p.y > cam.height * 0.15 && p.y < cam.height * 0.62; // au-dessus de la boîte
+    if (inX && inY) return;
+    const dy = ((0.5 - FOCUS_SCREEN_Y) * cam.height) / cam.zoom; // cadré dans le tiers haut
+    this._panZoom({ x: c.x, y: c.y + dy }, cam.zoom, SHOW_MS);
   }
 
   _panZoom({ x, y }, zoom, duration) {
