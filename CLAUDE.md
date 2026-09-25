@@ -234,8 +234,9 @@ pour le détail exact et la prochaine étape.
 - **Quêtes** : données dans `src/game/quests.js`, suivi dans GameState
   (`_checkQuests`, `claimQuest`), carnet `ui/QuestPanel.js` ; récompense
   toujours réclamée à la main. Sauvegarde v3 (même clé, champs ajoutés).
-- **Collecte** : jauge au pied = accumulation ; coche verte au-dessus = prêt ;
-  anneau = en cours ; cloche = demande de contrat. Fiche : pastilles par
+- **Collecte** : jauge au pied = accumulation ; bulle verte à coche blanche = prêt ;
+  anneau = en cours ; cloche = demande de contrat ; ROUGE = client mécontent
+  (patience dépassée, la collecte coûte de l'XP — inactif pendant le tuto). Fiche : pastilles par
   type TOUJOURS visibles + bouton « Collecter » (1 type → présélectionné).
 - **Contrats** : demandes générées par niveau (`GameState.refreshOffers`,
   les plus proches du QG), signées via `signContract` (fiche ou onglet).

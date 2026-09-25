@@ -11,8 +11,10 @@ const HOVER_TINT = 0xfff4d6;
  * gains flottants, et DEUX temporalités bien distinctes (prompt du
  * 2026-09-25) :
  * - jauge horizontale AU PIED du bâtiment = déchets accumulés depuis la
- *   dernière collecte ; pleine → pastille à COCHE VERTE au-dessus (prêt,
- *   « c'est bon, tu peux collecter » — remplace le « ! » le 2026-09-25) ;
+ *   dernière collecte ; pleine → pastille VERTE à coche blanche au-dessus
+ *   (prêt, « c'est bon, tu peux collecter ») ; si le client attend plus que
+ *   sa patience → pastille ROUGE à visage en colère (mécontent : la collecte
+ *   coûtera de l'XP) ;
  * - anneau AU-DESSUS du bâtiment = collecte EN COURS (+ secondes).
  * Établissement qui DEMANDE un contrat (pas encore client) : pastille
  * sarcelle à CLOCHE qui se balance de temps en temps. Un bâtiment sans contrat
@@ -216,10 +218,20 @@ export class CityBuildings {
       // Déchets en accumulation : rien au-dessus, seule la jauge au pied parle.
       if (this.state.cooldownLeftS(id, now) > 0) continue;
 
-      // Prêt : pastille crème à coche verte (« c'est bon, tu peux collecter »).
       g.fillStyle(0x1b1712, 0.9).fillCircle(0, 0, r + 2);
-      g.fillStyle(0xf1e9d2, 1).fillCircle(0, 0, r - 1);
-      g.lineStyle(4, 0x4c6b3f, 1).beginPath();
+      if (this.state.isAngry(id, now)) {
+        // Mécontent : pastille rouge, visage en colère (sourcils + bouche).
+        g.fillStyle(0xa23b2a, 1).fillCircle(0, 0, r - 1);
+        g.lineStyle(2.5, 0xf1e9d2, 1);
+        g.lineBetween(-7, -6, -2, -3).lineBetween(7, -6, 2, -3); // sourcils
+        g.fillStyle(0xf1e9d2, 1).fillCircle(-4, -1, 1.6).fillCircle(4, -1, 1.6); // yeux
+        g.beginPath();
+        g.arc(0, 8, 5, Math.PI * 1.15, Math.PI * 1.85, false).strokePath(); // bouche
+        continue;
+      }
+      // Prêt : pastille verte à coche blanche (« c'est bon, tu peux collecter »).
+      g.fillStyle(0x4c6b3f, 1).fillCircle(0, 0, r - 1);
+      g.lineStyle(4, 0xf1e9d2, 1).beginPath();
       g.moveTo(-6, 0).lineTo(-2, 5).lineTo(7, -5).strokePath();
     }
   }
@@ -256,7 +268,9 @@ export class CityBuildings {
     if (!item) return;
     const lines = [
       { text: `+${reward.money} FCFA`, color: '#e8bd55', dy: 0 },
-      { text: `+${reward.xp} XP`, color: '#a8d27a', dy: 16 },
+      reward.angry
+        ? { text: `${reward.xp || '−0'} XP · client mécontent`, color: '#e0735f', dy: 16 }
+        : { text: `+${reward.xp} XP`, color: '#a8d27a', dy: 16 },
     ];
     if (reward.fuel) lines.push({ text: `carburant −${reward.fuel}`, color: '#d9a08a', dy: 32, small: true });
     lines.forEach((line, i) => {

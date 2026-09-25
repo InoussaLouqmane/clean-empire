@@ -19,6 +19,10 @@ export const ECONOMY = {
   collection: {
     cooldownS: 30, // délai avant de pouvoir recollecter le même bâtiment
     minDurationS: 3, // plancher, même avec le meilleur engin
+    // Mécontentement (2026-09-25) : un client prêt attend `patienceS` (par
+    // type ci-dessous) ; au-delà il est mécontent (bulle rouge) et sa collecte
+    // coûte de l'XP au lieu d'en rapporter. Pas pendant le tutoriel.
+    angryXpPenalty: 5,
   },
 
   units: {
@@ -84,13 +88,13 @@ export const ECONOMY = {
   // Au niveau 1, seuls les 3 restaurants du tutoriel sont sous contrat ; les
   // autres affichent ces valeurs, verrouillées.
   clients: {
-    building_restaurant: { type: 'Restaurant', money: 500, xp: 4, durationS: 15, unlockLevel: 1 },
-    building_cousin: { type: 'Immeuble', money: 300, xp: 2, durationS: 12, unlockLevel: 2 },
-    building_ecole: { type: 'École', money: 600, xp: 5, durationS: 20, unlockLevel: 2 },
-    building_marche: { type: 'Marché', money: 700, xp: 5, durationS: 20, unlockLevel: 2 },
-    building_hotel: { type: 'Hôtel', money: 800, xp: 6, durationS: 25, unlockLevel: 2 },
-    building_cinema: { type: 'Cinéma', money: 900, xp: 7, durationS: 25, unlockLevel: 3 },
-    building_hopital: { type: 'Hôpital', money: 1000, xp: 8, durationS: 30, unlockLevel: 3 },
+    building_restaurant: { type: 'Restaurant', money: 500, xp: 4, durationS: 15, patienceS: 30, unlockLevel: 1 },
+    building_cousin: { type: 'Immeuble', money: 300, xp: 2, durationS: 12, patienceS: 40, unlockLevel: 2 },
+    building_ecole: { type: 'École', money: 600, xp: 5, durationS: 20, patienceS: 35, unlockLevel: 2 },
+    building_marche: { type: 'Marché', money: 700, xp: 5, durationS: 20, patienceS: 35, unlockLevel: 2 },
+    building_hotel: { type: 'Hôtel', money: 800, xp: 6, durationS: 25, patienceS: 40, unlockLevel: 2 },
+    building_cinema: { type: 'Cinéma', money: 900, xp: 7, durationS: 25, patienceS: 40, unlockLevel: 3 },
+    building_hopital: { type: 'Hôpital', money: 1000, xp: 8, durationS: 30, patienceS: 45, unlockLevel: 3 },
   },
 
   // Contrats (onglet « Contrats » de la boutique, rétabli le 2026-09-25) :

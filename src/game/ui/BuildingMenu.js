@@ -94,6 +94,7 @@ export class BuildingMenu {
         <p class="building-menu__kicker">Contrat actif · ${c.type}</p>
         <h3 class="building-menu__title">${b.name}</h3>
         ${stats(c, this.state)}
+        <p class="building-menu__patience" data-bm="patience" hidden></p>
         <div data-bm="assign"></div>
         <p class="building-menu__hint" data-bm="hint"></p>`;
       this._refresh();
@@ -145,6 +146,16 @@ export class BuildingMenu {
     const s = this.state;
     const now = Date.now();
     const assign = this.el.querySelector('[data-bm="assign"]');
+
+    // Patience du client prêt (mécontentement, jeu libre uniquement).
+    const patienceEl = this.el.querySelector('[data-bm="patience"]');
+    const left = s.patienceLeftS(this.openId, now);
+    patienceEl.hidden = left === null;
+    patienceEl.classList.toggle('is-angry', left === 0);
+    patienceEl.textContent =
+      left === 0
+        ? `Client mécontent : −${ECONOMY.collection.angryXpPenalty} XP à la collecte`
+        : `Patience : ${left} s avant mécontentement`;
     const types = UNIT_TYPES.filter((t) => s.units.some((u) => u.type === t));
     const available = s.availableUnits(now);
     const blocker = s.collectBlocker(this.openId, now);
@@ -280,5 +291,6 @@ function stats(c, state) {
       <div>${icon('coin')}<dt>Récompense</dt><dd>${formatMoney(Math.round(c.money * m.rewardMult))}</dd></div>
       <div>${icon('star')}<dt>Expérience</dt><dd>+${c.xp + m.xpBonus} XP</dd></div>
       <div>${icon('clock')}<dt>Collecte (à pied)</dt><dd>${walkerS} s</dd></div>
+      ${state.tutorial.done ? `<div>${icon('smiley')}<dt>Patience</dt><dd>${c.patienceS} s</dd></div>` : ''}
     </dl>`;
 }

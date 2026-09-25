@@ -47,6 +47,10 @@ export class GameState {
     this.contractOffers = data.contractOffers ?? [];
     this.offersUpToLevel = data.offersUpToLevel ?? 1;
     this.contractsIntroDone = data.contractsIntroDone ?? false;
+    // Patience des clients : ne démarre qu'une fois toutes les présentations
+    // de Karim finies (tutoriel, carnet, contrats), pour ne pas pénaliser
+    // pendant qu'on lit.
+    this.patienceSince = data.patienceSince ?? (this.contractsIntroDone ? Date.now() : 0);
     this.catalog = new Map(); // tous les bâtiments de la carte (setCatalog)
     // Partie finie AVANT le bonus de fin de niveau (option A) : remise à
     // niveau, sinon elle resterait affichée « Niv. 1 » après « Niveau 1 terminé ».
@@ -160,6 +164,32 @@ export class GameState {
     return Math.min(1, Math.max(0, 1 - (b.cooldownUntil - now) / total));
   }
 
+  /** Le mécontentement est-il actif ? (jeu libre, après les présentations) */
+  get patienceActive() {
+    return this.tutorial.done && this.contractsIntroDone && this.patienceSince > 0;
+  }
+
+  /** Instant où le client `id` est devenu prêt (fin d'accumulation). */
+  _readyAt(id) {
+    const b = this.buildings[id];
+    return Math.max(b?.cooldownUntil ?? 0, b?.readyAt ?? 0, this.patienceSince);
+  }
+
+  /**
+   * Secondes de patience restantes d'un client PRÊT (null si le mécontentement
+   * est inactif, s'il est en collecte ou encore en accumulation).
+   */
+  patienceLeftS(id, now = Date.now()) {
+    const client = this.client(id);
+    if (!this.patienceActive || !client || this.isCollecting(id) || this.cooldownLeftS(id, now) > 0) return null;
+    return Math.max(0, Math.ceil((this._readyAt(id) + client.patienceS * 1000 - now) / 1000));
+  }
+
+  /** Client mécontent : prêt depuis plus longtemps que sa patience. */
+  isAngry(id, now = Date.now()) {
+    return this.patienceLeftS(id, now) === 0;
+  }
+
   /** Progression 0..1 d'une collecte en cours. */
   collectionProgress(id, now = Date.now()) {
     const c = this.collecting[id];
@@ -197,7 +227,8 @@ export class GameState {
     const unit = this.units.find((u) => u.id === unitId);
     if (!unit || this.unitStatus(unit, now) !== 'available') return false;
     const durationS = this.collectionDurationFor(id, unit.type);
-    this.collecting[id] = { unitId, endsAt: now + durationS * 1000, durationS };
+    // Un client mécontent au départ de la collecte le reste pour la récompense.
+    this.collecting[id] = { unitId, endsAt: now + durationS * 1000, durationS, angry: this.isAngry(id, now) };
     bus.emit('collection_started', { id, unitId, durationS });
     this._changed();
     return true;
@@ -211,6 +242,14 @@ export class GameState {
       const unit = this.units.find((u) => u.id === c.unitId);
       const mods = this.mods;
       const reward = collectionReward(this.client(id), unit?.type ?? 'walker', mods);
+      if (c.angry) {
+        // Mécontent : l'XP est perdue au lieu d'être gagnée — sans jamais
+        // redescendre sous le seuil du niveau en cours.
+        const penalty = Math.min(ECONOMY.collection.angryXpPenalty, Math.max(0, this.xp - this.levelBounds.floor));
+        reward.xp = -penalty;
+        reward.angry = true;
+        this.stats.angryCollections = (this.stats.angryCollections ?? 0) + 1;
+      }
       this.money += reward.money;
       this.xp += reward.xp;
       this.stats.collections += 1;
@@ -435,6 +474,8 @@ export class GameState {
     this.contractOffers = this.contractOffers.filter((o) => o !== id);
     this.signedContracts.push(id);
     this._makeContract(id);
+    // Nouveau client : prêt tout de suite, sa patience démarre à la signature.
+    this.buildings[id] = { collected: 0, cooldownUntil: 0, readyAt: Date.now() };
     this.money += money;
     this.xp += xp;
     bus.emit('contract_signed', { id, reward: { money, xp } });
@@ -452,6 +493,7 @@ export class GameState {
 
   setContractsIntroDone() {
     this.contractsIntroDone = true;
+    this.patienceSince = Date.now(); // début du mécontentement (jeu libre)
     this._changed();
   }
 
@@ -510,6 +552,7 @@ export class GameState {
       contractOffers: this.contractOffers,
       offersUpToLevel: this.offersUpToLevel,
       contractsIntroDone: this.contractsIntroDone,
+      patienceSince: this.patienceSince,
     });
   }
 }
