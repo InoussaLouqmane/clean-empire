@@ -1447,3 +1447,43 @@ vitesse du doigt ; sons toujours synthétisés.
 ### Hors scope (backlog niveau 2)
 
 Boucle de mécontentement (retards, seuils, pénalités).
+
+---
+
+## 2026-09-25 — Carte finale + retour de la saisie du prénom d'origine
+
+### Fait
+
+- **Prénom** : retour à la version d'origine (demande utilisateur) — plus de
+  croix ✕, placeholder « Ton prénom », prénom obligatoire (message « Écris ton
+  prénom pour commencer. »). Le repli « Ange » reste dans GameController mais
+  n'est plus atteignable.
+- **Carte finale** (`Downloads/last_map_for_today_i_think.json`, annoncée comme
+  la dernière mise à jour) → `public/maps/default-map.json` : 88 bâtiments
+  (dont le 1er QG en 11,22 et 4 déchetteries), 722 détails, 252 cases d'eau.
+  Les 3 contrats du tutoriel et la maison de Karim sont aux mêmes cases.
+- **Assets personnalisés sortis du JSON** : ils n'existaient qu'en base64 dans
+  le fichier (2,8 Mo) et n'étaient chargés que depuis le localStorage de
+  l'éditeur → invisibles chez les joueurs. Les 4 réellement utilisés sont
+  maintenant de vrais fichiers réduits dans `public/assets/map-custom/`, avec
+  des clés fixes (`prop_maison`, `tile_berge`, `prop_sable`, `prop_sable_2`)
+  dans `ASSET_PATHS`/`LAYER_PALETTE` (donc pré-chargés par le menu). Rendu
+  identique à l'éditeur (mêmes tailles). Carte : 2,8 Mo → 120 Ko.
+- **Noms** : `buildingRegistry.js` complété, les 88 bâtiments ont un nom
+  unique.
+- Vérifié en headless : carte complète affichée, aucune erreur/404, saisie du
+  prénom, démarrage du tutoriel. Rendu logiciel ~13 % plus lent qu'avant
+  (6,5 vs 7,5 i/s en SwiftShader) — à confirmer sur un vrai téléphone.
+
+### À valider par l'utilisateur
+
+- Coin haut-droit (col. 25–38, lignes 0–11) sans tuile de sol : couvert par du
+  sable posé en « détail », les trous laissent voir le sol décoratif.
+- 5 bâtiments posés sur l'eau (1,12 · 3,12 · 4,13 · 5,22 · 5,27), gardés tels
+  quels.
+- Le QG n'a pas encore de rôle de jeu (point de départ des unités à venir).
+
+### Prochaine étape
+
+Refonte des boîtes de dialogue (références `Downloads/diagBox1-3.png`) —
+proposition envoyée, en attente du feu vert.

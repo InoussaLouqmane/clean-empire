@@ -48,6 +48,12 @@ export const ASSET_PATHS = {
   char_worker: 'assets/characters/worker_walk_4frames_32x48.png',
   vehicle_tricycle: 'assets/vehicles/tricycle_move_3frames_32x32.png',
   vehicle_camion: 'assets/vehicles/camion_move_3frames_32x32.png',
+  // Assets ajoutés dans l'éditeur par l'utilisateur (carte finale du
+  // 2026-09-25), sortis du JSON (base64) vers de vrais fichiers réduits.
+  tile_berge: 'assets/map-custom/berge.png',
+  prop_maison: 'assets/map-custom/maison.png',
+  prop_sable: 'assets/map-custom/sable.png',
+  prop_sable_2: 'assets/map-custom/sable_2.png',
 };
 
 // Décor hors zone (voir mapDecor.js) : nuages dessinés fournis par
@@ -82,6 +88,7 @@ export const LAYER_PALETTE = {
     { key: 'tile_grass', label: 'Herbe' },
     { key: 'tile_sidewalk', label: 'Trottoir' },
     { key: 'tile_water', label: 'Eau (repli teinté)' },
+    { key: 'tile_berge', label: 'Berge' },
   ],
   roads: [
     { key: 'tile_road_straight', label: 'Route droite' },
@@ -103,6 +110,9 @@ export const LAYER_PALETTE = {
     { key: 'prop_tree', label: 'Arbre' },
     { key: 'prop_lamp', label: 'Lampadaire' },
     { key: 'prop_bench', label: 'Banc' },
+    { key: 'prop_maison', label: 'Maison' },
+    { key: 'prop_sable', label: 'Sable' },
+    { key: 'prop_sable_2', label: 'Sable 2' },
     { key: 'prop_poubelle_vide', label: 'Poubelle vide' },
     { key: 'prop_poubelle_pleine', label: 'Poubelle pleine' },
     { key: 'prop_poubelle_debordante', label: 'Poubelle débordante' },

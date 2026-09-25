@@ -1082,26 +1082,6 @@
   height: 5px;
 }
 
-.name-input {
-  position: absolute;
-}
-.name-input__close {
-  position: absolute;
-  top: 8px;
-  right: 10px;
-  width: 30px;
-  height: 30px;
-  padding: 0;
-  font: 700 22px/1 var(--font-ui);
-  color: var(--color-text-muted);
-  background: none;
-  border: none;
-  cursor: pointer;
-}
-.name-input__close:hover {
-  color: var(--color-text);
-}
-
 @media (max-width: 600px) {
   .dialogue,
   .dialogue.is-full {

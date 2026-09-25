@@ -130,6 +130,11 @@ pas réintroduire de logique Tiled ailleurs que dans `convertTiledToGrid()`.
   navigateur : les éditions tiennent le temps de la session (registre Phaser,
   survit à `scene.restart()`). Pour changer la carte par défaut : "Exporter la
   carte" dans l'éditeur, puis remplacer `default-map.json` par l'export.
+- **Carte finale (2026-09-25)** : les assets ajoutés dans l'éditeur sont
+  exportés en base64 dans le JSON et ne vivent que dans le localStorage de
+  l'éditeur. Avant de publier une carte, les sortir en fichiers
+  (`public/assets/map-custom/`), leur donner une clé fixe dans `ASSET_PATHS`
+  et vider `customAssets` du JSON — sinon ils sont invisibles chez les joueurs.
 - Le `.tmj` référence un tileset externe (`net_empire_demo.tsx`) dont les images
   n'existent pas dans ce projet (placeholders générés ailleurs) — sans
   conséquence puisqu'on ne charge jamais ce tileset, seulement la grille brute
