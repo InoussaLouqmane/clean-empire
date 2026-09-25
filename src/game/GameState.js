@@ -106,6 +106,18 @@ export class GameState {
     return Math.max(0, Math.ceil((until - now) / 1000));
   }
 
+  /**
+   * Accumulation des déchets 0..1 depuis la dernière collecte (1 = prêt à
+   * collecter). Jamais collecté : plein. Sert la jauge au pied du bâtiment,
+   * distincte de l'anneau de collecte EN COURS (prompt du 2026-09-25).
+   */
+  accumulation(id, now = Date.now()) {
+    const b = this.buildings[id];
+    if (!b?.cooldownUntil || now >= b.cooldownUntil) return 1;
+    const total = (b.cooldownS ?? ECONOMY.collection.cooldownS) * 1000;
+    return Math.min(1, Math.max(0, 1 - (b.cooldownUntil - now) / total));
+  }
+
   /** Progression 0..1 d'une collecte en cours. */
   collectionProgress(id, now = Date.now()) {
     const c = this.collecting[id];
@@ -118,7 +130,7 @@ export class GameState {
     if (!this.contracts.has(id)) return 'Pas de contrat';
     if (this.isCollecting(id)) return 'Collecte en cours';
     const cd = this.cooldownLeftS(id, now);
-    if (cd > 0) return `Disponible dans ${cd} s`;
+    if (cd > 0) return `Déchets en accumulation : ${Math.floor(this.accumulation(id, now) * 100)} %`;
     if (this.availableUnits(now).length === 0) return 'Aucune unité disponible';
     return null;
   }
@@ -166,7 +178,8 @@ export class GameState {
       }
       const b = (this.buildings[id] ??= { collected: 0, cooldownUntil: 0 });
       b.collected += 1;
-      b.cooldownUntil = now + ECONOMY.collection.cooldownS * 1000;
+      b.cooldownS = ECONOMY.collection.cooldownS;
+      b.cooldownUntil = now + b.cooldownS * 1000;
       bus.emit('collection_finished', { id, reward });
       this._changed();
     }

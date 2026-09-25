@@ -8,8 +8,11 @@ const HOVER_TINT = 0xfff4d6;
 /**
  * Tous les bâtiments de la ville côté Phaser (refonte niveau 1 : tous sont
  * cliquables). Pour les bâtiments SOUS CONTRAT uniquement : marqueur au sol,
- * indicateur de disponibilité permanent au-dessus du bâtiment (prêt / en
- * collecte / recollecte dans X s), gains flottants. Un bâtiment sans contrat
+ * gains flottants, et DEUX temporalités bien distinctes (prompt du
+ * 2026-09-25) :
+ * - jauge horizontale AU PIED du bâtiment = déchets accumulés depuis la
+ *   dernière collecte ; pleine → pastille « ! » au-dessus (prêt) ;
+ * - anneau AU-DESSUS du bâtiment = collecte EN COURS (+ secondes). Un bâtiment sans contrat
  * n'affiche jamais d'indicateur de collecte (cohérent avec le message
  * « pas de contrat » au clic).
  *
@@ -75,7 +78,10 @@ export class CityBuildings {
       .strokePath();
     item.marker.setVisible(false);
 
-    // Indicateur de disponibilité, toujours visible au-dessus du bâtiment.
+    // Jauge d'accumulation des déchets, au pied du bâtiment.
+    item.gauge = this.scene.add.graphics().setDepth(948000).setPosition(sprite.x, sprite.y + 8);
+
+    // Indicateur au-dessus du bâtiment : prêt (!) ou collecte en cours (anneau).
     item.indicator = this.scene.add.graphics().setDepth(950000).setPosition(sprite.x, item.top - 16);
     item.indicatorText = this.scene.add
       .text(sprite.x, item.top - 16, '', {
@@ -163,11 +169,15 @@ export class CityBuildings {
       const g = item.indicator;
       const text = item.indicatorText;
       g.clear();
+      item.gauge.clear();
       text.setText('').setFontSize(11).setColor('#f1e9d2');
       if (this.greyed) continue;
       const r = 13;
 
-      if (this.state.isCollecting(id)) {
+      const collecting = this.state.isCollecting(id);
+      this._drawGauge(item.gauge, collecting ? 0 : this.state.accumulation(id, now));
+
+      if (collecting) {
         // En collecte : anneau vert qui se remplit + secondes restantes.
         const p = this.state.collectionProgress(id, now);
         g.fillStyle(0x1b1712, 0.85).fillCircle(0, 0, r + 4);
@@ -178,14 +188,8 @@ export class CityBuildings {
         continue;
       }
 
-      const cd = this.state.cooldownLeftS(id, now);
-      if (cd > 0) {
-        // Recollecte : pastille grise + secondes avant disponibilité.
-        g.fillStyle(0x1b1712, 0.8).fillCircle(0, 0, r + 2);
-        g.lineStyle(3, 0x8c7860, 1).strokeCircle(0, 0, r - 1);
-        text.setText(String(cd)).setColor('#c9bda3');
-        continue;
-      }
+      // Déchets en accumulation : rien au-dessus, seule la jauge au pied parle.
+      if (this.state.cooldownLeftS(id, now) > 0) continue;
 
       // Prêt : pastille dorée « ! » qui invite à collecter.
       g.fillStyle(0x1b1712, 0.9).fillCircle(0, 0, r + 2);
@@ -193,6 +197,19 @@ export class CityBuildings {
       text.setText('!').setColor('#1b1712');
       text.setFontSize(15);
     }
+  }
+
+  /** Jauge au pied du bâtiment : `fill` 0..1 (pleine = dorée, prêt à collecter). */
+  _drawGauge(g, fill) {
+    const w = 42;
+    const h = 7;
+    const full = fill >= 1;
+    g.fillStyle(0x1b1712, 0.85).fillRect(-w / 2 - 2, -h / 2 - 2, w + 4, h + 4);
+    g.fillStyle(0x5b4632, 1).fillRect(-w / 2, -h / 2, w, h);
+    if (fill > 0) g.fillStyle(full ? 0xc79a3b : 0xc98f5e, 1).fillRect(-w / 2, -h / 2, Math.round(w * fill), h);
+    // graduations tous les 25 % : lecture « pixel » de la progression
+    g.fillStyle(0x1b1712, 0.55);
+    for (let i = 1; i < 4; i++) g.fillRect(-w / 2 + Math.round((w * i) / 4), -h / 2, 1, h);
   }
 
   _floatReward(id, reward) {
