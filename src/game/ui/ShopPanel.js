@@ -55,6 +55,8 @@ export class ShopPanel {
         }).join('')}
       </ul>
       <div data-shop="fleet"></div>`;
+    this.tutorialRecruit = false;
+    this.recruitDenied = 0;
     root.appendChild(this.el);
 
     this.el.addEventListener('click', (e) => {
@@ -96,6 +98,17 @@ export class ShopPanel {
     else this.open();
   }
 
+  /**
+   * Tutoriel, correction 5 du 2026-09-25 : le joueur doit pouvoir ESSAYER de
+   * recruter sans en avoir les moyens. Tant que c'est actif, « Recruter » a
+   * l'air cliquable (pas de grisage) et un échec est silencieux à l'écran
+   * (juste le son « refus ») ; `recruitDenied` compte ces essais.
+   */
+  setTutorialRecruit(on) {
+    this.tutorialRecruit = on;
+    if (this.isOpen) this.render();
+  }
+
   /** Bouton « Recruter » (pour la pulsation du tutoriel). */
   get recruitButton() {
     return this.el.querySelector('[data-buy="walker"]');
@@ -108,8 +121,9 @@ export class ShopPanel {
     const walkerBtn = this.recruitButton;
     const cost = s.nextWalkerCost;
     this.el.querySelector('[data-price="walker"]').textContent = formatMoney(cost);
-    walkerBtn.setAttribute('aria-disabled', String(s.money < cost));
-    walkerBtn.title = s.money < cost ? "Pas assez d'argent" : '';
+    const short = s.money < cost && !this.tutorialRecruit;
+    walkerBtn.setAttribute('aria-disabled', String(short));
+    walkerBtn.title = short ? "Pas assez d'argent" : '';
 
     for (const type of VEHICLE_TYPES) {
       const v = ECONOMY.units[type];
@@ -165,6 +179,11 @@ export class ShopPanel {
   _act(btn, fn, kind) {
     if (btn.getAttribute('aria-disabled') === 'true' || !fn()) {
       sfx.denied();
+      if (this.tutorialRecruit && btn.dataset.buy === 'walker') {
+        this.recruitDenied += 1;
+        bus.emit('recruit_denied');
+        return; // pas de secousse : échec muet à l'écran
+      }
       btn.classList.remove('is-denied');
       void btn.offsetWidth;
       btn.classList.add('is-denied');

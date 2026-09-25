@@ -57,6 +57,25 @@ function untarget(ctx) {
   ctx.guide.clear();
 }
 
+const anyCollecting = (state) => ALL.some((id) => state.isCollecting(id));
+
+/**
+ * Guide vers les restos pas encore collectés jusqu'à `done()` (un seul
+ * ouvrier). Le doigt et l'auréole disparaissent DÈS qu'une collecte est
+ * lancée (corrections 3-4 du 2026-09-25 : ils restaient pendant les 15 s),
+ * et reviennent si la collecte finie ne suffit pas.
+ */
+async function guideCollections(ctx, done) {
+  const { state, dialogue } = ctx;
+  while (!done() && !dialogue.cancelled) {
+    const left = notYetCollected(state);
+    target(ctx, left.length ? left : ALL);
+    await dialogue.waitUntil(() => done() || anyCollecting(state));
+    untarget(ctx);
+    await dialogue.waitUntil(() => done() || !anyCollecting(state));
+  }
+}
+
 const STEPS = {
   // Séquence 1 — Retrouvailles : zoom sur la maison de Karim, HUD masqué,
   // restaurants grisés ; puis la caméra recule sur la ville.
@@ -80,20 +99,19 @@ const STEPS = {
     if (state.collectedCount(R1) > 0) return;
 
     if (!state.isCollecting(R1)) {
-      ctx.buildings.setHighlight(R1);
-      await dialogue.say(SCRIPT.consigne1);
+      // Consignes 1-2 : la bulle reste affichée et se ferme d'elle-même dès
+      // que le joueur a fait l'action (pas de clic en plus sur la boîte).
       target(ctx, R1);
-      await dialogue.waitUntil(() => buildingMenu.openId === R1 || state.isCollecting(R1));
+      await dialogue.prompt(SCRIPT.consigne1, () => buildingMenu.openId === R1 || state.isCollecting(R1));
 
-      // Consigne 2 : le menu du bâtiment reste ouvert derrière la bulle.
+      // Consigne 2 : le menu du bâtiment reste ouvert au-dessus de la bulle.
       if (!state.isCollecting(R1)) {
         ctx.guide.clear();
-        await dialogue.say(SCRIPT.consigne2);
         const stop = pointUi(ctx, buildingMenu.collectBtn);
-        await dialogue.waitUntil(() => state.isCollecting(R1) || state.collectedCount(R1) > 0);
+        await dialogue.prompt(SCRIPT.consigne2, () => state.isCollecting(R1) || state.collectedCount(R1) > 0);
         stop();
       }
-      untarget(ctx);
+      untarget(ctx); // doigt + auréole disparaissent dès le clic sur Collecter
     }
 
     // Feedback 1 : l'attente (une unité occupée ne peut pas être ailleurs).
@@ -107,48 +125,47 @@ const STEPS = {
     prepareGame(ctx);
     if (collectedDistinct(state) >= 2) return;
     await dialogue.say(SCRIPT.consigne3);
-    target(ctx, state.collectedCount(R2) > 0 ? notYetCollected(state) : R2);
-    await dialogue.waitUntil(() => collectedDistinct(state) >= 2);
-    untarget(ctx);
+    await guideCollections(ctx, () => collectedDistinct(state) >= 2);
   },
 
   // Consigne 4 : découvrir la boutique.
   async consigne4(ctx) {
     const { dialogue, hud, shop } = ctx;
     prepareGame(ctx);
-    await dialogue.say(SCRIPT.consigne4);
     const stop = pointUi(ctx, hud.shopBtn);
-    await dialogue.waitUntil(() => shop.isOpen);
+    await dialogue.prompt(SCRIPT.consigne4, () => shop.isOpen);
     stop();
   },
 
   // Consigne 5 (+ branche « pas encore assez ») puis feedback 2.
+  // Correction 5 du 2026-09-25 : le joueur ESSAIE d'abord de recruter (le
+  // bouton a l'air actif, l'échec est muet à l'écran) ; Karim ne dit « Pas
+  // encore assez » qu'après cette tentative.
   async consigne5(ctx) {
     const { state, dialogue, shop, buildingMenu } = ctx;
     prepareGame(ctx);
-    if (state.walkerCount < 2) {
+    const hired = () => state.walkerCount >= 2;
+    if (!hired()) {
       shop.open();
-      await dialogue.say(SCRIPT.consigne5);
+      shop.setTutorialRecruit(true);
+      const tries = shop.recruitDenied;
+      let stop = pointUi(ctx, shop.recruitButton);
+      await dialogue.prompt(SCRIPT.consigne5, () => hired() || shop.recruitDenied > tries);
+      stop();
+      shop.setTutorialRecruit(false);
 
-      if (state.money < state.nextWalkerCost) {
+      if (!hired()) {
         await dialogue.say(SCRIPT.consigne5PasAssez);
         shop.close();
-        target(ctx, notYetCollected(state).length ? notYetCollected(state) : ALL);
-        await dialogue.waitUntil(() => state.money >= state.nextWalkerCost || state.walkerCount >= 2);
-        untarget(ctx);
-        if (state.walkerCount < 2) {
+        await guideCollections(ctx, () => state.money >= state.nextWalkerCost || hired());
+        if (!hired()) {
           // Karim relance la consigne 5 dès que l'argent suffit.
           buildingMenu.close();
           shop.open();
-          await dialogue.say(SCRIPT.consigne5Relance);
+          stop = pointUi(ctx, shop.recruitButton);
+          await dialogue.prompt(SCRIPT.consigne5Relance, hired);
+          stop();
         }
-      }
-
-      if (state.walkerCount < 2) {
-        if (!shop.isOpen) shop.open();
-        const stop = pointUi(ctx, shop.recruitButton);
-        await dialogue.waitUntil(() => state.walkerCount >= 2);
-        stop();
       }
     }
     shop.close();

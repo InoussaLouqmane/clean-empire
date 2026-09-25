@@ -1,15 +1,9 @@
 import { sfx } from '../sfx.js';
+import { AVAILABLE_PORTRAITS, CHAR_DIR } from '../portraits.js';
 
 const TYPE_MS_PER_CHAR = 22;
-const CHAR_DIR = 'assets/characters';
-const KARIM_FALLBACK = `${CHAR_DIR}/karim.png`;
-
-// Portraits par expression : `karim_<expression>.png` / `joueur_<expression>.png`
-// dans public/assets/characters/ (noms sans accents, voir la liste donnée à
-// l'utilisateur le 2026-09-24). AJOUTER ICI le nom de chaque fichier livré
-// (ex. 'karim_accueil') : seuls ceux listés sont chargés, les autres utilisent
-// le repli (image générique de Karim, ou initiale du joueur) — pas de 404.
-const AVAILABLE_PORTRAITS = new Set([]);
+const KARIM_FALLBACK = `${CHAR_DIR}/karim.png`; // expression sans portrait livré
+const KARIM_CORNER = `${CHAR_DIR}/karim_accueil.png`;
 const missing = new Set();
 
 function slug(expression) {
@@ -75,7 +69,7 @@ export class DialogueBox {
     this.corner = document.createElement('div');
     this.corner.className = 'karim-corner';
     this.corner.hidden = true;
-    this.corner.innerHTML = `<img src="${KARIM_FALLBACK}" alt="Karim" /><span>Karim</span>`;
+    this.corner.innerHTML = `<img src="${KARIM_CORNER}" alt="Karim" /><span>Karim</span>`;
     root.appendChild(this.corner);
 
     this.busts = {
@@ -123,9 +117,15 @@ export class DialogueBox {
    * Affiche une réplique ; résout la promesse quand le joueur avance sur le
    * texte entièrement affiché.
    * @param {{ speaker: string, isKarim: boolean, expression?: string, text: string, playerName?: string }} line
+   * @param {{ hold?: boolean }} options  `hold` : réplique de consigne — reste
+   *   affichée sans ▼ et sans assombrissement, le clic ne la fait pas avancer
+   *   (c'est le DialogueManager qui passe à la suite quand l'action est faite).
    */
-  say({ speaker, isKarim, expression, text, playerName }) {
+  say({ speaker, isKarim, expression, text, playerName }, { hold = false } = {}) {
+    this.hold = hold;
     this.show();
+    this.el.classList.toggle('is-hold', hold);
+    if (hold) this.backdrop.hidden = true;
     const changed = !this.el.classList.contains(isKarim ? 'is-karim' : 'is-player');
     this.el.classList.toggle('is-karim', isKarim);
     this.el.classList.toggle('is-player', !isKarim);
@@ -216,6 +216,7 @@ export class DialogueBox {
       this.el.classList.remove('is-typing');
       return;
     }
+    if (this.hold) return; // consigne : on attend l'action, pas un clic
     if (this._resolve) {
       sfx.click();
       const resolve = this._resolve;
@@ -232,6 +233,10 @@ export class DialogueBox {
 
   /** Cache la boîte ; `withKarim` laisse Karim discret dans le coin. */
   hide({ withKarim = false } = {}) {
+    // stoppe la machine à écrire (sinon elle continue, avec ses blips, boîte cachée)
+    clearInterval(this._typing?.timer);
+    this._typing = null;
+    this.el.classList.remove('is-typing');
     this.el.hidden = true;
     this.backdrop.hidden = true;
     this.corner.hidden = !withKarim;

@@ -231,4 +231,6 @@ pour le détail exact et la prochaine étape.
   TOUJOURS aligné à gauche, bustes joueur à gauche / Karim à droite (les deux
   en 'full', seul celui qui parle en 'light'). Groupes `SCRIPT` avec `mode` ('full' | 'light') et `focus` ;
   portraits `public/assets/characters/karim_<expression>.png` et
-  `joueur_<expression>.png` (repli automatique si absents).
+  `joueur_<expression>.png`, déclarés dans `src/game/portraits.js` (Karim :
+  12 livrés ; joueur : silhouette en attendant). Répliques de consigne
+  (« Clique sur… ») : `dialogue.prompt(group, cond)`, jamais `say()`.

@@ -1534,3 +1534,40 @@ Retours de l'utilisateur sur la boîte ; livraison des portraits.
   confirmation, retour au menu avec « Continuer ». Aucune erreur.
 - ⚠️ Le disque C: était plein (0 Mo libre) pendant les tests : 14 profils
   Chrome temporaires laissés par mes tests headless (329 Mo) supprimés.
+
+---
+
+## 2026-09-25 — Portraits de Karim + corrections du dictatiel (niveau 1)
+
+### Fait
+
+- **Portraits** : 12 expressions de Karim (`Downloads/karim_image`) réduites
+  à 512 px (10 Mo → 763 Ko) dans `public/assets/characters/`, noms alignés sur
+  le script (`patience` → `karim_patient`, accents retirés). `fierte` et
+  `patient` recadrés pour que la tête ait la même taille que sur les autres
+  (bras en partie coupés en bas). Liste dans `src/game/portraits.js` (source
+  unique, aussi pré-chargée par le menu). Cadre des bustes passé en carré.
+  Le petit Karim du coin utilise `karim_accueil`.
+- **Corrections** (`Downloads/dictatiel-correct.md`) :
+  1-2. Nouvelle méthode `DialogueManager.prompt(group, cond)` : réplique de
+       CONSIGNE tenue (sans ▼, sans assombrissement, le clic ne l'avance pas),
+       fermée automatiquement quand l'action est faite. Utilisée pour
+       Collecter, Recruter et aussi (validé) « Clique dessus » (1er resto) et
+       « Vas-y, clique dessus » (boutique).
+  3-4. `guideCollections()` : doigt + auréole disparaissent dès le lancement
+       d'une collecte (aussi pour le 2ᵉ resto, même défaut).
+  5.   Recrutement : `ShopPanel.setTutorialRecruit(true)` — « Recruter » a
+       l'air actif, l'échec ne fait que le son « refus » (pas de secousse ni
+       de message), puis Karim dit « Pas encore assez ? … » (texte d'origine
+       gardé, choix utilisateur).
+- La machine à écrire s'arrête quand la boîte est cachée (plus de blips
+  fantômes).
+- Vérifié en headless : niveau 1 complet (63 s) jusqu'à l'écran de fin, les
+  12 portraits affichés, chaque correction contrôlée (texte suivant affiché
+  sans appui, doigt null après Collecter, bouton non grisé + pas de secousse).
+  Aucune erreur ni 404. **Pas déployé** : test en local d'abord (demande
+  utilisateur).
+
+### Prochaine étape
+
+Test par l'utilisateur en local, puis push (déploiement Vercel).

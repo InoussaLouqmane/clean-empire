@@ -2,6 +2,7 @@ import Phaser from 'phaser';
 import { CalibrationScene } from './scenes/CalibrationScene.js';
 import { MapScene } from './scenes/MapScene.js';
 import { ASSET_PATHS, DECOR_ASSET_PATHS, MAP_JSON_PATH } from './mapLoader.js';
+import { PORTRAIT_URLS } from './game/portraits.js';
 
 // Partie "jeu" (Phaser + carte + éditeur). Ce module n'est JAMAIS importé
 // statiquement par le menu (src/main.js) : il est chargé à la demande via
@@ -16,6 +17,7 @@ export const GAME_ASSET_URLS = [
   MAP_JSON_PATH,
   ...Object.values(ASSET_PATHS),
   ...Object.values(DECOR_ASSET_PATHS),
+  ...PORTRAIT_URLS, // portraits du dialogue (DOM, pas Phaser) : pas d'apparition tardive
 ];
 
 /**

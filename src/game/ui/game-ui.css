@@ -440,7 +440,7 @@
 }
 
 .dialogue {
-  /* hauteur des bustes ; largeur = 4/5 (portraits attendus en 512×640) */
+  /* hauteur des bustes ; cadre carré (portraits livrés en 512×512) */
   --bust-h: min(250px, 36vh);
   position: absolute;
   left: 50%;
@@ -461,7 +461,7 @@
   position: absolute;
   bottom: calc(100% - 22px); /* la boîte recouvre le bas du buste */
   z-index: 0;
-  width: calc(var(--bust-h) * 0.8);
+  width: var(--bust-h);
   height: var(--bust-h);
   margin: 0;
   pointer-events: none;
@@ -479,10 +479,7 @@
 }
 .dialogue__bust img {
   display: block;
-  /* un peu plus large que le cadre : l'image actuelle de Karim est plus
-     large que haute ; un buste 4:5 reste limité par la hauteur */
-  width: 130%;
-  margin-left: -15%;
+  width: 100%;
   height: 100%;
   object-fit: contain;
   object-position: 50% 100%;
@@ -513,9 +510,11 @@
 }
 .dialogue__placeholder svg {
   position: absolute;
-  inset: auto 0 0;
-  width: 100%;
-  height: auto;
+  left: 50%;
+  bottom: 0;
+  width: auto;
+  height: 100%;
+  translate: -50% 0;
   fill: var(--palette-terracotta);
   stroke: var(--palette-dark);
   stroke-width: 4;
@@ -528,7 +527,7 @@
   left: 0;
   right: 0;
   /* centre de la tête : cy 78 sur une hauteur de 200 (viewBox 160×200) */
-  bottom: calc(var(--bust-h) * 0.8 * 1.25 * (1 - 78 / 200));
+  bottom: calc(var(--bust-h) * (1 - 78 / 200));
   transform: translateY(50%);
   text-align: center;
   font-size: calc(var(--bust-h) * 0.22);
@@ -607,7 +606,11 @@
   cursor: pointer;
   animation: dialogue-more 900ms steps(2, jump-none) infinite;
 }
-.dialogue.is-typing .dialogue__more {
+.dialogue.is-hold {
+  cursor: default;
+}
+.dialogue.is-typing .dialogue__more,
+.dialogue.is-hold .dialogue__more {
   visibility: hidden;
 }
 
