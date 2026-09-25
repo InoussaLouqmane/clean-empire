@@ -14,8 +14,12 @@ import { DialogueBox } from './ui/DialogueBox.js';
 import { Guide } from './ui/Guide.js';
 import { askPlayerName } from './ui/NameInput.js';
 import { GameMenu } from './ui/GameMenu.js';
+import { QuestPanel } from './ui/QuestPanel.js';
+import { showToast } from './ui/Toast.js';
+import { QUESTS } from './quests.js';
+import { sfx } from './sfx.js';
 import { showLevelComplete } from './ui/LevelComplete.js';
-import { CONTRACTS, KARIM_HOUSE } from './level1/script.js';
+import { CONTRACTS, KARIM_HOUSE, SCRIPT } from './level1/script.js';
 import { runLevel1 } from './level1/Level1Tutorial.js';
 import './ui/game-ui.css';
 
@@ -49,9 +53,11 @@ export class GameController {
     this.buildings = new CityBuildings(scene, spriteGrid, this.cityBuildings, this.state);
     this.hud = new Hud(this.root, this.state, {
       onShop: ({ forceOpen } = {}) => (forceOpen ? this.shop.open() : this.shop.toggle()),
+      onQuests: () => this.quests.toggle(),
     });
     this.buildingMenu = new BuildingMenu(this.root, this.state, this.cityBuildings);
     this.shop = new ShopPanel(this.root, this.state);
+    this.quests = new QuestPanel(this.root, this.state);
     this.guide = new Guide(this.root, scene, this.buildings);
     this.dialogueBox = new DialogueBox(this.root);
     this.gameMenu = new GameMenu(this.root, this.state);
@@ -59,8 +65,34 @@ export class GameController {
 
     // Ouvrir la boutique ferme la fiche d'un bâtiment (et inversement).
     this._offs = [
-      bus.on('shop_opened', () => this.buildingMenu.close()),
-      bus.on('building_clicked', () => this.shop.close()),
+      bus.on('shop_opened', () => {
+        this.buildingMenu.close();
+        this.quests.close();
+      }),
+      bus.on('quests_opened', () => {
+        this.buildingMenu.close();
+        this.shop.close();
+      }),
+      bus.on('building_clicked', () => {
+        this.shop.close();
+        this.quests.close();
+      }),
+      bus.on('level_up', ({ level }) => {
+        sfx.levelUp();
+        showToast(this.root, { title: `Niveau ${level} atteint !`, text: unlocksAt(level), kind: 'level' });
+      }),
+      bus.on('quest_completed', ({ id }) => {
+        if (!this.state.questsIntroDone) return; // pendant le tutoriel : en coulisses
+        // Plusieurs objectifs remplis d'un coup (montée de niveau…) : UNE annonce.
+        (this._questBatch ??= []).push(id);
+        clearTimeout(this._questBatchTimer);
+        this._questBatchTimer = setTimeout(() => {
+          const ids = this._questBatch;
+          this._questBatch = [];
+          const text = ids.length === 1 ? `${QUESTS.find((q) => q.id === ids[0]).title} · prime à réclamer` : 'Primes à réclamer dans le carnet';
+          showToast(this.root, { title: ids.length === 1 ? 'Objectif rempli' : `${ids.length} objectifs remplis`, text, iconName: 'book' });
+        }, 60);
+      }),
     ];
 
     this.hud.setVisible(false);
@@ -101,13 +133,31 @@ export class GameController {
       pulse,
       revealCity: () => this._panZoom(this._cityCenter(), 1.1, 1200),
       showBuilding: (id) => this._showBuilding(id),
-      onLevelComplete: () => showLevelComplete(this.root, this.state, { onContinue: () => {} }),
+      onLevelComplete: () => new Promise((resolve) => showLevelComplete(this.root, this.state, { onContinue: resolve })),
     });
+
+    // Carnet de quêtes : présenté par Karim une fois (fin du niveau 1, ou à la
+    // reprise d'une partie où le tutoriel est déjà fini).
+    if (this.state.tutorial.done && !this.state.questsIntroDone && !this.dialogue.cancelled) await this._introQuests();
 
     // Tutoriel terminé (ou déjà fini à la reprise) : jeu libre.
     this.guide.clear();
     this.buildings.setGreyed(false);
     this.hud.setVisible(true);
+  }
+
+  async _introQuests() {
+    this.hud.setVisible(true);
+    await this.dialogue.say(SCRIPT.quetes);
+    this.hud.showQuests = true; // le carnet apparaît quand Karim en parle
+    this.hud.render();
+    this.guide.point({ el: this.hud.questBtn });
+    const stop = pulse(this.hud.questBtn);
+    await this.dialogue.prompt(SCRIPT.quetesOuvrir, () => this.quests.isOpen);
+    stop();
+    this.guide.clear();
+    this.dialogue.hide({ withKarim: false });
+    this.state.setQuestsIntroDone();
   }
 
   // --------------------------------------------------------------- caméra
@@ -198,7 +248,9 @@ export class GameController {
     this.hud.destroy();
     this.buildingMenu.destroy();
     this.shop.destroy();
+    this.quests.destroy();
     this.guide.destroy();
+    clearTimeout(this._questBatchTimer);
     this.dialogueBox.destroy();
     this.gameMenu.destroy();
     this.root.remove();
@@ -225,4 +277,15 @@ function resolveContracts(grid) {
 function pulse(el) {
   el?.classList.add('tuto-pulse');
   return () => el?.classList.remove('tuto-pulse');
+}
+
+/** Ce qui se débloque au niveau `level` (texte de l'annonce de montée de niveau). */
+function unlocksAt(level) {
+  const items = [
+    ...Object.values(ECONOMY.units).filter((u) => u.unlockLevel === level).map((u) => u.label),
+    ...Object.values(ECONOMY.upgrades).filter((u) => u.unlockLevel === level && !u.comingSoon).map((u) => u.label),
+  ];
+  const quests = QUESTS.filter((q) => q.level === level).length;
+  if (quests) items.push(`${quests} nouveaux objectifs`);
+  return items.length ? `Débloqué : ${items.join(', ')}` : '';
 }

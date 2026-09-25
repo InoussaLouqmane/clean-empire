@@ -97,6 +97,20 @@ export const LINES = {
       text: "Autre chose dans la boutique : les engins. Ça réduit le temps de chaque collecte. Utile quand t'auras plus de contrats à gérer.",
     },
   ],
+  // Présentation du carnet de quêtes, juste après l'écran de fin du niveau 1
+  // (texte proposé par l'agent, validé par l'utilisateur le 2026-09-25 :
+  // « fais-toi plaisir »).
+  quetes: [
+    { speaker: 'karim', expression: 'malin', text: "Attends, avant que tu files : je t'ai noté quelques objectifs dans un carnet." },
+    {
+      speaker: 'karim',
+      expression: 'sourire',
+      text: "Chaque objectif rempli te rapporte une prime. Mais elle tombe pas toute seule dans ta poche : faut venir la réclamer !",
+    },
+  ],
+  quetesOuvrir: [
+    { speaker: 'karim', expression: 'encouragement', text: "Le carnet, c'est l'icône juste à côté de ta boutique. Ouvre-le, t'as déjà de quoi réclamer." },
+  ],
   cloture: [
     { speaker: 'karim', expression: 'fierté', text: 'Tu gères déjà mieux que moi à tes débuts.' },
     {
@@ -142,4 +156,6 @@ export const SCRIPT = {
   // gauche), l'assombrissement et le buste du joueur la cacheraient.
   consigne6: { mode: 'light', lines: LINES.consigne6 },
   cloture: { mode: 'full', focus: 'city', lines: LINES.cloture },
+  quetes: { mode: 'light', lines: LINES.quetes },
+  quetesOuvrir: { mode: 'light', lines: LINES.quetesOuvrir },
 };

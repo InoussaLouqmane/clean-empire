@@ -12,13 +12,16 @@ import { unitIcon, conditionGauge, STATUS_LABELS } from './units.js';
  * Chaque valeur qui change fait une petite impulsion (design system §13–14).
  */
 export class Hud {
-  constructor(root, state, { onShop }) {
+  constructor(root, state, { onShop, onQuests }) {
     this.state = state;
     this.el = document.createElement('div');
     this.el.className = 'hud-game';
     this.el.innerHTML = `
       <button type="button" class="hud-shop" data-hud="shop" aria-label="Boutique">
         <img src="assets/ui/boutique.png" alt="" width="160" height="157" />
+      </button>
+      <button type="button" class="hud-quests" data-hud="quests" aria-label="Quêtes" hidden>
+        ${icon('book')}<span class="hud-badge" data-hud="badge" hidden></span>
       </button>
       <div class="hud-column">
         <div class="hud-bar" role="status" aria-live="polite">
@@ -37,6 +40,14 @@ export class Hud {
     root.appendChild(this.el);
 
     this.shopBtn = this.el.querySelector('[data-hud="shop"]');
+    // Carnet de quêtes : caché pendant le tutoriel (les quêtes y avancent en
+    // coulisses), puis présenté par Karim. Badge = quêtes à réclamer.
+    this.questBtn = this.el.querySelector('[data-hud="quests"]');
+    this.badgeEl = this.el.querySelector('[data-hud="badge"]');
+    this.questBtn.addEventListener('click', () => {
+      sfx.click();
+      onQuests?.();
+    });
     this.moneyEl = this.el.querySelector('[data-hud="money"]');
     this.xpEl = this.el.querySelector('[data-hud="xp"]');
     this.workersEl = this.el.querySelector('[data-hud="workers"]');
@@ -71,12 +82,18 @@ export class Hud {
     this.workersEl.querySelector('b').textContent = workers;
     this._renderFleet();
 
+    this.questBtn.hidden = !(s.questsIntroDone || this.showQuests); // révélé par Karim
+    const claimable = s.claimableQuestCount;
+    this.badgeEl.hidden = claimable === 0;
+    this.badgeEl.textContent = String(claimable);
+    if (!initial && this.prev.claimable !== undefined && claimable > this.prev.claimable) this._bump(this.questBtn, true);
+
     if (!initial) {
       if (this.prev.money !== undefined && this.prev.money !== s.money) this._bump(this.moneyEl, s.money > this.prev.money);
       if (this.prev.xp !== undefined && this.prev.xp !== s.xp) this._bump(this.xpEl, true);
       if (this.prev.workers !== undefined && this.prev.workers !== workers) this._bump(this.workersEl, true);
     }
-    this.prev = { money: s.money, xp: s.xp, workers };
+    this.prev = { money: s.money, xp: s.xp, workers, claimable };
   }
 
   _renderFleet() {

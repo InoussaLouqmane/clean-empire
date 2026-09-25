@@ -25,7 +25,7 @@ export async function runLevel1(ctx) {
   ctx.guide.clear();
   ctx.dialogue.hide({ withKarim: false });
   state.completeLevel();
-  ctx.onLevelComplete();
+  await ctx.onLevelComplete(); // attend « Continuer à jouer »
 }
 
 const [R1, R2, R3] = ['resto_1', 'resto_2', 'resto_3'];

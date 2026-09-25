@@ -46,7 +46,9 @@ export const QUESTS = [
   // --- Niveau 1 : introduction (3)
   q(1, 'premier_balai', 'collections', 1, 'Premier coup de balai', 'Termine ta première collecte', 200),
   q(1, 'equipe', 'walkers', 2, 'Une équipe qui grandit', 'Aie 2 ouvriers à pied', 300),
-  q(1, 'premiers_benefices', 'money_earned', 2000, 'Premiers bénéfices', 'Gagne 2 000 FCFA au total', 300, 5),
+  // 1 500 = les 3 collectes du tutoriel : les 3 quêtes d'intro sont prêtes à
+  // réclamer quand Karim présente le carnet.
+  q(1, 'premiers_benefices', 'money_earned', 1500, 'Premiers bénéfices', 'Gagne 1 500 FCFA au total', 300, 5),
 
   // --- Niveau 2 (10)
   q(2, 'a_son_compte', 'level', 2, 'À son compte', 'Atteins le niveau 2', 1000, 0),
