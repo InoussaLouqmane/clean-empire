@@ -1593,3 +1593,12 @@ la boutique (ou sur la boîte / Entrée) fait avancer Karim ; boutique refermée
 sinon l'assombrissement et le buste du joueur cachent la boutique). Vérifié en
 headless : clic sur le bouton du tricycle → rien acheté (0 → 0 FCFA), la
 réplique suivante s'affiche, boutique fermée ; niveau complet, aucune erreur.
+
+### Portraits du joueur (même jour)
+
+`joueur_curieux` et `joueur_sceptique` (Downloads, 2048 px) → 512 px (~70 Ko
+chacun), recadrés pour que la tête ait l'échelle de Karim (ils étaient en
+buste entier, bras croisés). `curieux` sert aussi de portrait neutre quand
+Karim parle avant que le joueur ne se soit exprimé (`PLAYER_NEUTRAL` dans
+`portraits.js`) ; la silhouette + initiale reste en repli. Vérifié : niveau
+complet, les 2 portraits affichés, aucune erreur.

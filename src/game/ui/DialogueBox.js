@@ -1,5 +1,5 @@
 import { sfx } from '../sfx.js';
-import { AVAILABLE_PORTRAITS, CHAR_DIR } from '../portraits.js';
+import { AVAILABLE_PORTRAITS, CHAR_DIR, PLAYER_NEUTRAL } from '../portraits.js';
 
 const TYPE_MS_PER_CHAR = 22;
 const KARIM_FALLBACK = `${CHAR_DIR}/karim.png`; // expression sans portrait livré
@@ -141,7 +141,7 @@ export class DialogueBox {
     this._setBust(this.busts[who], AVAILABLE_PORTRAITS.has(key) ? `${CHAR_DIR}/${key}.png` : fallback, fallback);
     // Le joueur n'a pas encore parlé : sa silhouette (ou son portrait neutre).
     if (isKarim && this.busts.player.url === undefined) {
-      const neutral = AVAILABLE_PORTRAITS.has('joueur_neutre') ? `${CHAR_DIR}/joueur_neutre.png` : null;
+      const neutral = AVAILABLE_PORTRAITS.has(PLAYER_NEUTRAL) ? `${CHAR_DIR}/${PLAYER_NEUTRAL}.png` : null;
       this._setBust(this.busts.player, neutral, null);
     }
 
