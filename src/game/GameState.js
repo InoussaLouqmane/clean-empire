@@ -41,6 +41,13 @@ export class GameState {
     this.stats = { collections: pastCollections, moneyEarned: 0, repairs: 0, vehicleCollections: 0, ...data.stats };
     this.quests = { completed: [], claimed: [], ...data.quests };
     this.questsIntroDone = data.questsIntroDone ?? false;
+    // Contrats (onglet rétabli le 2026-09-25) : signés hors tutoriel, demandes
+    // en attente, niveaux déjà servis en demandes, présentation par Karim.
+    this.signedContracts = data.signedContracts ?? [];
+    this.contractOffers = data.contractOffers ?? [];
+    this.offersUpToLevel = data.offersUpToLevel ?? 1;
+    this.contractsIntroDone = data.contractsIntroDone ?? false;
+    this.catalog = new Map(); // tous les bâtiments de la carte (setCatalog)
     // Partie finie AVANT le bonus de fin de niveau (option A) : remise à
     // niveau, sinon elle resterait affichée « Niv. 1 » après « Niveau 1 terminé ».
     if (this.tutorial.done && this.xp < this._levelTwoXp) this.xp = this._levelTwoXp;
@@ -372,6 +379,82 @@ export class GameState {
     this._changed();
   }
 
+  // ----------------------------------------------------------- contrats
+
+  /**
+   * Catalogue des bâtiments de la ville (buildingRegistry) et point de
+   * référence (le QG) pour choisir les demandes les plus proches. Restaure
+   * aussi les contrats signés d'une partie sauvegardée.
+   */
+  setCatalog(buildings) {
+    this.catalog = new Map(buildings.map((b) => [b.id, b]));
+    const qg = buildings.find((b) => b.key === 'building_qg');
+    this._origin = qg ? { col: qg.col, row: qg.row } : { col: 20, row: 15 };
+    for (const id of this.signedContracts) this._makeContract(id);
+    for (const id of this.contractOffers) {
+      const b = this.catalog.get(id);
+      if (b) b.offer = true;
+    }
+  }
+
+  /**
+   * Génère les demandes de contrat des niveaux atteints qui n'en ont pas
+   * encore eu. Renvoie les ids des nouvelles demandes.
+   */
+  refreshOffers() {
+    const created = [];
+    for (let lvl = this.offersUpToLevel + 1; lvl <= this.level; lvl++) {
+      const n = ECONOMY.contracts.offersPerLevel[lvl] ?? 6;
+      const d = (b) => Math.hypot(b.col - this._origin.col, b.row - this._origin.row);
+      const candidates = [...this.catalog.values()]
+        .filter((b) => b.client && !b.contract && !b.offer && b.client.unlockLevel <= lvl)
+        .sort((a, b) => d(a) - d(b))
+        .slice(0, n);
+      for (const b of candidates) {
+        b.offer = true;
+        this.contractOffers.push(b.id);
+        created.push(b.id);
+      }
+      this.offersUpToLevel = lvl;
+    }
+    if (created.length) {
+      bus.emit('contract_offers', { ids: created });
+      this._changed();
+    } else this.save();
+    return created;
+  }
+
+  isOffered(id) {
+    return this.contractOffers.includes(id);
+  }
+
+  /** Signe la demande `id` : gratuit, +1 000 FCFA / +10 XP, devient client. */
+  signContract(id) {
+    if (!this.isOffered(id)) return false;
+    const { money, xp } = ECONOMY.contracts.newContract;
+    this.contractOffers = this.contractOffers.filter((o) => o !== id);
+    this.signedContracts.push(id);
+    this._makeContract(id);
+    this.money += money;
+    this.xp += xp;
+    bus.emit('contract_signed', { id, reward: { money, xp } });
+    this._changed();
+    return true;
+  }
+
+  _makeContract(id) {
+    const b = this.catalog.get(id);
+    if (!b?.client) return;
+    b.contract = true;
+    b.offer = false;
+    this.contracts.set(id, { id, name: b.name, col: b.col, row: b.row, client: b.client });
+  }
+
+  setContractsIntroDone() {
+    this.contractsIntroDone = true;
+    this._changed();
+  }
+
   _addUnit(type) {
     const unit = { id: `u${this._nextUnitId++}`, type, uses: 0, repairUntil: 0 };
     this.units.push(unit);
@@ -423,6 +506,10 @@ export class GameState {
       stats: this.stats,
       quests: this.quests,
       questsIntroDone: this.questsIntroDone,
+      signedContracts: this.signedContracts,
+      contractOffers: this.contractOffers,
+      offersUpToLevel: this.offersUpToLevel,
+      contractsIntroDone: this.contractsIntroDone,
     });
   }
 }

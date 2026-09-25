@@ -45,6 +45,7 @@ export class GameController {
     const contractEntries = this.cityBuildings.filter((b) => b.contract);
     this.contractCells = contractEntries;
     this.state = new GameState(saved ?? {}, contractEntries);
+    this.state.setCatalog(this.cityBuildings); // contrats signés / demandes en attente
 
     this.root = document.createElement('div');
     this.root.className = 'game-ui';
@@ -56,7 +57,13 @@ export class GameController {
       onQuests: () => this.quests.toggle(),
     });
     this.buildingMenu = new BuildingMenu(this.root, this.state, this.cityBuildings);
-    this.shop = new ShopPanel(this.root, this.state);
+    this.shop = new ShopPanel(this.root, this.state, {
+      // « Voir » une demande de contrat : caméra sur le bâtiment + sa fiche.
+      onShowBuilding: (id) => {
+        this._showBuilding(id, { force: true });
+        setTimeout(() => bus.emit('building_clicked', { id }), SHOW_MS);
+      },
+    });
     this.quests = new QuestPanel(this.root, this.state);
     this.guide = new Guide(this.root, scene, this.buildings);
     this.dialogueBox = new DialogueBox(this.root);
@@ -81,7 +88,16 @@ export class GameController {
         if (fromLevelEnd) return; // l'écran « Niveau 1 terminé » l'annonce déjà
         sfx.levelUp();
         showToast(this.root, { title: `Niveau ${level} atteint !`, text: unlocksAt(level), kind: 'level' });
+        if (this.state.contractsIntroDone) this._announceOffers(level);
       }),
+      bus.on('contract_signed', ({ id, reward }) => {
+        this.buildings.addContract(id);
+        const b = this.state.catalog.get(id);
+        showToast(this.root, { title: 'Contrat signé', text: `${b?.name ?? ''} · +${reward.money} FCFA · +${reward.xp} XP`, iconName: 'star' });
+      }),
+      // Premiers contrats présentés par Karim une fois le carnet refermé
+      // (les primes d'intro réclamées) : un seul sujet à la fois.
+      bus.on('quests_closed', () => this._maybeIntroContracts()),
       bus.on('quest_completed', ({ id }) => {
         if (!this.state.questsIntroDone) return; // pendant le tutoriel : en coulisses
         // Plusieurs objectifs remplis d'un coup (montée de niveau…) : UNE annonce.
@@ -141,6 +157,8 @@ export class GameController {
     // Carnet de quêtes : présenté par Karim une fois (fin du niveau 1, ou à la
     // reprise d'une partie où le tutoriel est déjà fini).
     if (this.state.tutorial.done && !this.state.questsIntroDone && !this.dialogue.cancelled) await this._introQuests();
+    if (this.state.contractsIntroDone) this.state.refreshOffers(); // reprise : niveaux gagnés entre-temps
+    else this._maybeIntroContracts();
 
     // Tutoriel terminé (ou déjà fini à la reprise) : jeu libre.
     this.guide.clear();
@@ -160,6 +178,44 @@ export class GameController {
     this.guide.clear();
     this.dialogue.hide({ withKarim: false });
     this.state.setQuestsIntroDone();
+  }
+
+  /** Karim présente les premiers contrats (niveau 2) : cloches + onglet. */
+  async _maybeIntroContracts() {
+    const s = this.state;
+    if (this._contractsIntro || s.contractsIntroDone || !s.tutorial.done || !s.questsIntroDone) return;
+    if (!s.introQuestsClaimed || this.quests.isOpen || this.dialogue.cancelled) return;
+    this._contractsIntro = true;
+    s.refreshOffers(); // les cloches apparaissent
+    await this.dialogue.say(SCRIPT.contrats);
+    const first = s.contractOffers[0];
+    if (first) {
+      this._showBuilding(first, { force: true });
+      this.guide.point({ building: first });
+    }
+    await this.dialogue.say(SCRIPT.contratsOu);
+    this.guide.clear();
+    this.dialogue.hide({ withKarim: false });
+    s.setContractsIntroDone();
+    this._contractsIntro = false;
+  }
+
+  /** Niveau suivant : nouvelles demandes de contrat, annoncées par Karim en une réplique. */
+  async _announceOffers(level) {
+    const ids = this.state.refreshOffers();
+    if (!ids.length || this.dialogue.cancelled) return;
+    this.dialogue.box.setMode('light');
+    await this.dialogue.say({
+      mode: 'light',
+      lines: [
+        {
+          speaker: 'karim',
+          expression: 'enthousiasme',
+          text: `Niveau ${level}, bravo ! ${ids.length} nouveaux établissements veulent signer avec toi : cherche les cloches.`,
+        },
+      ],
+    });
+    this.dialogue.hide({ withKarim: false });
   }
 
   // --------------------------------------------------------------- caméra
@@ -205,14 +261,14 @@ export class GameController {
    * est gardé. Retour utilisateur du 2026-09-25 : après « Pas encore assez »,
    * le doigt pointait le 3e resto hors écran.
    */
-  _showBuilding(id) {
+  _showBuilding(id, { force = false } = {}) {
     const c = this.buildings.centerOf(id);
     if (!c) return;
     const cam = this.scene.cameras.main;
     const p = worldToScreen(cam, c.x, c.y);
     const inX = p.x > cam.width * 0.12 && p.x < cam.width * 0.88;
     const inY = p.y > cam.height * 0.15 && p.y < cam.height * 0.62; // au-dessus de la boîte
-    if (inX && inY) return;
+    if (inX && inY && !force) return;
     const dy = ((0.5 - FOCUS_SCREEN_Y) * cam.height) / cam.zoom; // cadré dans le tiers haut
     this._panZoom({ x: c.x, y: c.y + dy }, cam.zoom, SHOW_MS);
   }

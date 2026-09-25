@@ -6,6 +6,7 @@ import { unitIcon, conditionGauge, STATUS_LABELS } from './units.js';
 
 const TABS = [
   { id: 'staff', icon: 'worker', label: 'Personnel & équipement', short: 'Équipe' },
+  { id: 'contracts', icon: 'book', label: 'Contrats', short: 'Contrats' },
   { id: 'upgrades', icon: 'gear', label: 'Améliorations', short: 'Améliorations' },
   { id: 'premium', icon: 'star', label: 'Premium', short: 'Premium' },
 ];
@@ -16,6 +17,8 @@ const COMING_SOON_MS = 2200;
  * Boutique — pop-up plein écran à onglets (prompt du 2026-09-25) :
  * - « Personnel & équipement » : recruter un ouvrier à pied, acheter un engin
  *   (conducteur inclus), état et réparation de ses engins ;
+ * - « Contrats » : établissements qui demandent un contrat (nouveaux à
+ *   chaque niveau) — Signer, ou Voir sur la carte ; + clients actuels ;
  * - « Améliorations » : upgrades permanents (economy.js → upgrades) ;
  * - « Premium » : achats en argent réel SIMULÉS (prix en XOF, bouton
  *   « Arrive bientôt ») — démonstration de la monétisation.
@@ -24,8 +27,9 @@ const COMING_SOON_MS = 2200;
  * system §21–24) ; un article indisponible affiche toujours POURQUOI.
  */
 export class ShopPanel {
-  constructor(root, state) {
+  constructor(root, state, { onShowBuilding } = {}) {
     this.state = state;
+    this.onShowBuilding = onShowBuilding;
     this.isOpen = false;
     this.tab = 'staff';
     this.tutorialRecruit = false;
@@ -53,6 +57,7 @@ export class ShopPanel {
         </div>
         <div class="shop__body">
           <section class="shop__panel" data-panel="staff">${this._staffHtml()}</section>
+          <section class="shop__panel" data-panel="contracts" hidden></section>
           <section class="shop__panel" data-panel="upgrades" hidden></section>
           <section class="shop__panel" data-panel="premium" hidden></section>
         </div>
@@ -84,6 +89,14 @@ export class ShopPanel {
       if (upgrade) this._act(upgrade, () => this.state.buyUpgrade(upgrade.dataset.upgrade), 'upgrade');
       const pack = e.target.closest('[data-pack]');
       if (pack) this._comingSoon(pack);
+      const sign = e.target.closest('[data-sign]');
+      if (sign) this._act(sign, () => this.state.signContract(sign.dataset.sign), 'contract');
+      const see = e.target.closest('[data-see]');
+      if (see) {
+        sfx.click();
+        this.close();
+        this.onShowBuilding?.(see.dataset.see);
+      }
     });
     this._onKey = (e) => {
       if (e.key === 'Escape' && this.isOpen && !this._onShowcaseClick) this.close();
@@ -165,6 +178,7 @@ export class ShopPanel {
       b.querySelector('.shop__tab-lock').hidden = !(locked && b.dataset.tab !== 'staff');
     }
     if (this.tab === 'staff') this._renderStaff();
+    else if (this.tab === 'contracts') this._renderContracts(locked);
     else if (this.tab === 'upgrades') this._renderUpgrades(locked);
     else this._renderPremium(locked);
   }
@@ -267,6 +281,42 @@ export class ShopPanel {
       </ul>`;
   }
 
+  // ------------------------------------------------------------ Contrats
+
+  _renderContracts(locked) {
+    const panel = this.el.querySelector('[data-panel="contracts"]');
+    if (locked) {
+      panel.innerHTML = lockedHtml('Les nouveaux contrats arrivent à la fin du tutoriel.');
+      return;
+    }
+    const s = this.state;
+    const bonus = ECONOMY.contracts.newContract;
+    const offers = s.contractOffers.map((id) => s.catalog.get(id)).filter(Boolean);
+    const clients = [...s.contracts.values()];
+    panel.innerHTML = `
+      <p class="shop__lead">Ta réputation grandit : à chaque niveau, de nouveaux établissements veulent travailler avec toi. Signature gratuite, +${formatMoney(bonus.money)} et +${bonus.xp} XP par contrat.</p>
+      <p class="shop__section">Demandes en attente (${offers.length})</p>
+      ${
+        offers.length
+          ? `<ul class="shop__items">${offers
+              .map(
+                (b) => `
+        <li class="shop-item shop-item--offer" data-item="offer-${b.id}">
+          <span class="shop-item__icon">${icon('star')}</span>
+          <span class="shop-item__text"><b>${b.name}</b><small>${b.client.type} · ${formatMoney(b.client.money)} · +${b.client.xp} XP · ${b.client.durationS} s à pied</small></span>
+          <span class="shop-item__actions">
+            <button type="button" class="game-btn" data-see="${b.id}"><span class="game-btn__label">Voir</span></button>
+            <button type="button" class="game-btn game-btn--primary" data-sign="${b.id}"><span class="game-btn__label">Signer</span></button>
+          </span>
+        </li>`
+              )
+              .join('')}</ul>`
+          : `<p class="shop__empty">Aucune demande pour l'instant. De nouveaux établissements te contacteront au prochain niveau.</p>`
+      }
+      <p class="shop__section">Tes clients (${clients.length})</p>
+      <ul class="shop__clients">${clients.map((c) => `<li>${c.name} <small>${c.client.type}</small></li>`).join('')}</ul>`;
+  }
+
   // ------------------------------------------------------ Améliorations
 
   _renderUpgrades(locked) {
@@ -355,6 +405,7 @@ export class ShopPanel {
       return;
     }
     if (kind === 'repair' || kind === 'upgrade') sfx.buy();
+    else if (kind === 'contract') sfx.hire();
     else if (btn.dataset.buy === 'walker') sfx.hire();
     else sfx.buy();
     const item = this.el.querySelector(`[data-item="${btn.closest('.shop-item')?.dataset.item}"]`);

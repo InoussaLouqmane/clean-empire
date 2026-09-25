@@ -93,10 +93,14 @@ export const ECONOMY = {
     building_hopital: { type: 'Hôpital', money: 1000, xp: 8, durationS: 30, unlockLevel: 3 },
   },
 
-  // Pour les niveaux suivants (pas utilisé au niveau 1).
+  // Contrats (onglet « Contrats » de la boutique, rétabli le 2026-09-25) :
+  // à chaque niveau atteint, de nouveaux établissements DEMANDENT un contrat
+  // (cloche au-dessus d'eux) — les plus proches du QG parmi ceux que le niveau
+  // autorise. Signature gratuite, bonus ci-dessous.
   contracts: {
     newContract: { money: 1000, xp: 10 },
-    maxDelays: 3,
+    offersPerLevel: { 2: 3, 3: 4, 4: 5, 5: 6 }, // au-delà : 6 par niveau
+    maxDelays: 3, // pas encore utilisé (mécontentement, niveau 2 à concevoir)
     terminationXpPenalty: 15,
   },
 };

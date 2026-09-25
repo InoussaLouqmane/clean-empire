@@ -9,8 +9,8 @@
 //
 // Niveau 1 : 3 quêtes d'introduction, qui avancent en coulisses pendant le
 // tutoriel et sont révélées à la fin. Le reste appartient à la suite du jeu.
-// Pas de quête de contrats : l'onglet Contrats a été abandonné (décision
-// utilisateur du 2026-09-25).
+// Quêtes de contrats : onglet Contrats rétabli le même jour (40 quêtes).
+// Contrats proposés : 3 au niv. 2, +4 au 3, +5 au 4, +6 au 5 → objectifs 1/5/10/15.
 
 /** Valeur actuelle mesurée par un type de quête. */
 export function questValue(state, quest) {
@@ -33,6 +33,8 @@ export function questValue(state, quest) {
       return state.stats.repairs;
     case 'level':
       return state.level;
+    case 'contracts':
+      return state.signedContracts.length;
     default:
       return 0;
   }
@@ -61,6 +63,7 @@ export const QUESTS = [
   q(2, 'chapeaux_de_roue', 'vehicle_collections', 5, 'Sur les chapeaux de roue', 'Fais 5 collectes en engin', 800, 5),
   q(2, 'investisseur', 'upgrades', 1, 'Investisseur', 'Achète une amélioration', 800, 5),
   q(2, 'mecano', 'repairs', 1, 'Mécano du dimanche', 'Répare un engin', 500),
+  q(2, 'premier_contrat', 'contracts', 1, 'Poignée de main', 'Signe un nouveau contrat', 500, 5),
 
   // --- Niveau 3 (11)
   q(3, 'niveau_3', 'level', 3, 'Entrepreneur confirmé', 'Atteins le niveau 3', 2000),
@@ -74,6 +77,7 @@ export const QUESTS = [
   q(3, 'poids_lourd', 'vehicles', 1, 'Poids lourd', 'Achète un camion', 5000, 20, { unit: 'camion' }),
   q(3, 'rouleur', 'vehicle_collections', 25, 'Rouleur', 'Fais 25 collectes en engin', 2500, 15),
   q(3, 'trois_ameliorations', 'upgrades', 3, 'Toujours mieux', 'Achète 3 améliorations', 2500, 15),
+  q(3, 'carnet_adresses', 'contracts', 5, "Carnet d'adresses", 'Signe 5 nouveaux contrats', 2000, 15),
 
   // --- Niveau 4 (6)
   q(4, 'niveau_4', 'level', 4, 'Patron de quartier', 'Atteins le niveau 4', 4000),
@@ -82,6 +86,7 @@ export const QUESTS = [
   q(4, 'huit_ouvriers', 'walkers', 8, 'Grande équipe', 'Aie 8 ouvriers à pied', 6000, 30),
   q(4, 'cinq_ameliorations', 'upgrades', 5, 'Machine bien huilée', 'Achète 5 améliorations', 6000, 30),
   q(4, 'dix_reparations', 'repairs', 10, 'Atelier tournant', 'Répare 10 fois un engin', 4000, 20),
+  q(4, 'reseau', 'contracts', 10, 'Le réseau', 'Signe 10 nouveaux contrats', 6000, 30),
 
   // --- Niveau 5 (6)
   q(5, 'niveau_5', 'level', 5, 'CLEAN CEO', 'Atteins le niveau 5', 10000),
@@ -90,4 +95,5 @@ export const QUESTS = [
   q(5, 'six_engins', 'vehicles', 6, 'Parc automobile', 'Aie 6 engins', 15000, 60),
   q(5, 'cent_cinquante_engin', 'vehicle_collections', 150, 'Roi de la route', 'Fais 150 collectes en engin', 15000, 60),
   q(5, 'tout_ameliore', 'upgrades', 6, 'Rien à redire', 'Achète toutes les améliorations disponibles', 20000, 80),
+  q(5, 'toute_la_ville', 'contracts', 15, 'Toute la ville en parle', 'Signe 15 nouveaux contrats', 15000, 60),
 ];

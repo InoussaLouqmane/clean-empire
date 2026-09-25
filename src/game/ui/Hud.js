@@ -1,15 +1,17 @@
 import { icon } from '../../menu/icons.js';
-import { formatMoney } from '../economy.js';
+import { VEHICLE_TYPES, ECONOMY, formatMoney } from '../economy.js';
 import { bus } from '../events.js';
 import { sfx } from '../sfx.js';
-import { unitIcon, conditionGauge, STATUS_LABELS } from './units.js';
+import { unitIcon } from './units.js';
 
 /**
- * HUD en jeu (haut-gauche) : bouton boutique, argent, XP (barre vers le
- * niveau suivant), ouvriers à pied « disponibles/total », et une pastille par
- * engin possédé (jauge « État » + statut en texte : disponible, en collecte,
- * en panne, en réparation). Un clic sur un engin ouvre la boutique (réparer).
- * Chaque valeur qui change fait une petite impulsion (design system §13–14).
+ * HUD en jeu (haut-gauche) : bouton boutique, carnet de quêtes, argent, XP
+ * (barre vers le niveau suivant) et, dans la MÊME barre, un compteur
+ * « disponibles/total » par type d'unité : ouvriers, puis tricycles et camions
+ * dès qu'on en possède (retour utilisateur du 2026-09-25 : le nombre compte
+ * plus que l'état ; l'état des engins est dans la boutique). Un clic sur un
+ * compteur d'engin ouvre la boutique. Chaque valeur qui change fait une petite
+ * impulsion (design system §13–14).
  */
 export class Hud {
   constructor(root, state, { onShop, onQuests }) {
@@ -23,19 +25,21 @@ export class Hud {
       <button type="button" class="hud-quests" data-hud="quests" aria-label="Quêtes" hidden>
         ${icon('book')}<span class="hud-badge" data-hud="badge" hidden></span>
       </button>
-      <div class="hud-column">
-        <div class="hud-bar" role="status" aria-live="polite">
-          <span class="hud-stat" data-hud="money">${icon('coin')}<b></b></span>
-          <span class="hud-stat hud-stat--xp" data-hud="xp">
-            ${icon('star')}
-            <span class="hud-xp">
-              <span class="hud-xp__label"><b></b> XP <small></small></span>
-              <span class="hud-xp__track"><span class="hud-xp__fill"></span></span>
-            </span>
+      <div class="hud-bar" role="status" aria-live="polite">
+        <span class="hud-stat" data-hud="money">${icon('coin')}<b></b></span>
+        <span class="hud-stat hud-stat--xp" data-hud="xp">
+          ${icon('star')}
+          <span class="hud-xp">
+            <span class="hud-xp__label"><b></b> XP <small></small></span>
+            <span class="hud-xp__track"><span class="hud-xp__fill"></span></span>
           </span>
-          <span class="hud-stat" data-hud="workers" title="Ouvriers à pied disponibles / total">${icon('worker')}<b></b></span>
-        </div>
-        <div class="hud-fleet" data-hud="fleet"></div>
+        </span>
+        <span class="hud-stat" data-hud="walker" title="Ouvriers à pied disponibles / total">${icon('worker')}<b></b></span>
+        ${VEHICLE_TYPES.map(
+          (t) => `
+        <button type="button" class="hud-stat hud-stat--unit" data-hud="${t}" hidden
+          title="${ECONOMY.units[t].label}s disponibles / total — ouvrir la boutique">${unitIcon(t)}<b></b></button>`
+        ).join('')}
       </div>`;
     root.appendChild(this.el);
 
@@ -50,37 +54,43 @@ export class Hud {
     });
     this.moneyEl = this.el.querySelector('[data-hud="money"]');
     this.xpEl = this.el.querySelector('[data-hud="xp"]');
-    this.workersEl = this.el.querySelector('[data-hud="workers"]');
-    this.fleetEl = this.el.querySelector('[data-hud="fleet"]');
+    this.unitEls = Object.fromEntries(['walker', ...VEHICLE_TYPES].map((t) => [t, this.el.querySelector(`[data-hud="${t}"]`)]));
+    this.workersEl = this.unitEls.walker;
     this.shopBtn.addEventListener('click', () => {
       sfx.click();
       onShop();
     });
-    this.fleetEl.addEventListener('click', (e) => {
-      if (!e.target.closest('.hud-vehicle')) return;
-      sfx.click();
-      onShop({ forceOpen: true });
-    });
+    for (const t of VEHICLE_TYPES) {
+      this.unitEls[t].addEventListener('click', () => {
+        sfx.click();
+        onShop({ forceOpen: true });
+      });
+    }
 
     this.prev = {};
     this._off = bus.on('state_changed', () => this.render());
-    this._timer = setInterval(() => this._renderFleet(), 1000); // secondes de réparation
+    this._timer = setInterval(() => this.render(), 1000); // fins de réparation
     this.render(true);
   }
 
   render(initial = false) {
     const s = this.state;
-    const walkers = s.units.filter((u) => u.type === 'walker');
-    const freeWalkers = walkers.filter((u) => s.unitStatus(u) === 'available').length;
-    const workers = `${freeWalkers}/${walkers.length}`;
-
+    const now = Date.now();
     this.moneyEl.querySelector('b').textContent = formatMoney(s.money);
     this.xpEl.querySelector('.hud-xp__label b').textContent = String(s.xp);
     this.xpEl.querySelector('.hud-xp__label small').textContent = `· Niv. ${s.level}`;
     const { floor, next } = s.levelBounds; // jauge = progression DANS le niveau
     this.xpEl.querySelector('.hud-xp__fill').style.width = `${Math.min(100, (100 * (s.xp - floor)) / (next - floor))}%`;
-    this.workersEl.querySelector('b').textContent = workers;
-    this._renderFleet();
+
+    const counts = {};
+    for (const [t, el] of Object.entries(this.unitEls)) {
+      const units = s.units.filter((u) => u.type === t);
+      const free = units.filter((u) => s.unitStatus(u, now) === 'available').length;
+      counts[t] = `${free}/${units.length}`;
+      el.hidden = t !== 'walker' && units.length === 0;
+      el.querySelector('b').textContent = counts[t];
+      if (!initial && this.prev.counts && this.prev.counts[t] !== counts[t]) this._bump(el, true);
+    }
 
     this.questBtn.hidden = !(s.questsIntroDone || this.showQuests); // révélé par Karim
     const claimable = s.claimableQuestCount;
@@ -91,31 +101,8 @@ export class Hud {
     if (!initial) {
       if (this.prev.money !== undefined && this.prev.money !== s.money) this._bump(this.moneyEl, s.money > this.prev.money);
       if (this.prev.xp !== undefined && this.prev.xp !== s.xp) this._bump(this.xpEl, true);
-      if (this.prev.workers !== undefined && this.prev.workers !== workers) this._bump(this.workersEl, true);
     }
-    this.prev = { money: s.money, xp: s.xp, workers, claimable };
-  }
-
-  _renderFleet() {
-    const s = this.state;
-    const now = Date.now();
-    const vehicles = s.units.filter((u) => u.type !== 'walker');
-    this.fleetEl.hidden = vehicles.length === 0;
-    this.fleetEl.innerHTML = vehicles
-      .map((u) => {
-        const status = s.unitStatus(u, now);
-        const label = status === 'repairing' ? `Réparation ${s.repairLeftS(u, now)} s` : STATUS_LABELS[status];
-        return `
-        <button type="button" class="hud-vehicle is-${status}" title="${s.unitLabel(u)} — ${label}">
-          ${unitIcon(u.type)}
-          <span class="hud-vehicle__body">
-            <span class="hud-vehicle__name">${s.unitLabel(u)}</span>
-            ${conditionGauge(s.unitCondition(u), 5)}
-            <span class="hud-vehicle__status">${label}</span>
-          </span>
-        </button>`;
-      })
-      .join('');
+    this.prev = { money: s.money, xp: s.xp, counts, claimable };
   }
 
   _bump(el, positive) {

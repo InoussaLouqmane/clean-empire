@@ -11,11 +11,12 @@ const PLURALS = { walker: 'Ouvriers', tricycle: 'Tricycles', camion: 'Camions' }
 /**
  * Fiche d'un bâtiment, ancrée au-dessus de lui (DOM, repositionnée à chaque
  * frame pour suivre la caméra). Trois cas (refonte niveau 1) :
- * - sous contrat : nom, récompense, durée, puis (sélecteur du 2026-09-25) :
- *   un seul TYPE d'unité possédé → bouton « Collecter » direct, sans choix ;
- *   plusieurs types → une PASTILLE par type, en ligne (badge = nombre
- *   disponible, durée et gain net) : cliquer une pastille lance la collecte
- *   avec ce type. Lisible même avec 100 ouvriers (jamais une ligne par unité) ;
+ * - sous contrat : nom, récompense, durée, puis « Qui envoyer ? » : TOUJOURS
+ *   une pastille par TYPE d'unité possédé, en ligne (badge = nombre
+ *   disponible, durée, gain net) — lisible même avec 100 ouvriers — et
+ *   TOUJOURS le bouton « Collecter ». On sélectionne une pastille, puis on
+ *   collecte. Un seul type possédé : sa pastille est présélectionnée (retour
+ *   utilisateur du 2026-09-25, capture « Présentation ») ;
  * - client sans contrat : mêmes infos, verrouillé (« pas encore de contrat ») ;
  * - bâtiment spécial (déchetterie…) : simple information.
  */
@@ -24,6 +25,7 @@ export class BuildingMenu {
     this.state = state;
     this.buildings = new Map(buildings.map((b) => [b.id, b]));
     this.openId = null;
+    this.selectedType = null;
 
     this.el = document.createElement('div');
     this.el.className = 'building-menu';
@@ -34,11 +36,17 @@ export class BuildingMenu {
       if (e.target.closest('.building-menu__close')) {
         sfx.close();
         this.close();
+      } else if (e.target.closest('[data-bm="sign"]')) {
+        this._sign();
       } else if (e.target.closest('[data-bm="collect"]')) {
-        this._collect(this._singleType);
+        this._collect(this.selectedType);
       } else {
         const chip = e.target.closest('[data-type]');
-        if (chip) this._collect(chip.dataset.type, chip);
+        if (chip && chip.getAttribute('aria-disabled') !== 'true') {
+          sfx.click();
+          this.selectedType = chip.dataset.type;
+          this._refresh();
+        }
       }
     });
 
@@ -46,16 +54,19 @@ export class BuildingMenu {
     this._offState = bus.on('state_changed', () => this._refresh());
   }
 
-  /** Bouton « Collecter » (pour la pulsation du tutoriel), ou la 1re pastille. */
+  /** Bouton « Collecter » (pour la pulsation du tutoriel). */
   get collectBtn() {
-    return this.el.querySelector('[data-bm="collect"]') ?? this.el.querySelector('[data-type]');
+    return this.el.querySelector('[data-bm="collect"]');
   }
 
   open(id) {
     const b = this.buildings.get(id);
     if (!b) return;
     if (this.openId === id && !this.el.hidden) return; // déjà ouverte : ne rien reconstruire
-    if (this.openId !== id) sfx.open();
+    if (this.openId !== id) {
+      sfx.open();
+      this.selectedType = null;
+    }
     this.openId = id;
     this.el.hidden = false;
     this.el.classList.remove('is-in');
@@ -89,13 +100,29 @@ export class BuildingMenu {
       return;
     }
 
+    if (b.client && b.offer) {
+      const c = b.client;
+      const bonus = ECONOMY.contracts.newContract;
+      this.el.dataset.kind = 'offer';
+      this.el.innerHTML = `${close}
+        <p class="building-menu__kicker building-menu__kicker--offer">${icon('star')} Demande de contrat · ${c.type}</p>
+        <h3 class="building-menu__title">${b.name}</h3>
+        ${stats(c, this.state)}
+        <p class="building-menu__info">Ce client a entendu parler de toi et veut travailler avec ton entreprise.</p>
+        <button type="button" class="game-btn game-btn--primary" data-bm="sign">
+          <span class="game-btn__label">Signer le contrat</span>
+        </button>
+        <small class="building-menu__meta">Signature gratuite · +${formatMoney(bonus.money)} · +${bonus.xp} XP</small>`;
+      return;
+    }
+
     if (b.client) {
       const c = b.client;
       this.el.innerHTML = `${close}
         <p class="building-menu__kicker building-menu__kicker--locked">${icon('lock')} Pas encore de contrat</p>
         <h3 class="building-menu__title">${b.name}</h3>
         ${stats(c, this.state)}
-        <p class="building-menu__locked">${c.type} · ${this.state.level >= c.unlockLevel ? 'nouveaux contrats bientôt disponibles' : `client disponible au niveau ${c.unlockLevel}`}.</p>
+        <p class="building-menu__locked">${c.type} · ${this.state.level >= c.unlockLevel ? "ne t'a pas encore contacté — de nouvelles demandes arrivent à chaque niveau" : `client possible à partir du niveau ${c.unlockLevel}`}.</p>
         <button type="button" class="game-btn" aria-disabled="true">
           <span class="game-btn__label">${icon('lock')} Verrouillé</span>
         </button>`;
@@ -113,6 +140,8 @@ export class BuildingMenu {
     if (!this.openId) return;
     const b = this.buildings.get(this.openId);
     if (!b?.contract) return;
+    // Contrat tout juste signé depuis la fiche « demande » : on la reconstruit.
+    if (this.el.dataset.kind !== 'contract') return this._render();
     const s = this.state;
     const now = Date.now();
     const assign = this.el.querySelector('[data-bm="assign"]');
@@ -123,59 +152,67 @@ export class BuildingMenu {
     // La structure n'est reconstruite que si les types possédés changent :
     // ensuite on ne met à jour que textes et attributs (un bouton remplacé
     // sous le doigt perdrait le clic, et la pulsation du tutoriel avec).
-    const key = types.length > 1 ? types.join(',') : 'single';
+    const key = types.join(',');
     if (assign.dataset.key !== key) {
       assign.dataset.key = key;
-      assign.innerHTML =
-        types.length > 1
-          ? `<p class="building-menu__section">Qui envoyer ?</p>
-             <div class="unit-chips" role="group" aria-label="Qui envoyer ?">
-               ${types
-                 .map(
-                   (t) => `
-               <button type="button" class="unit-chip" data-type="${t}">
-                 ${unitIcon(t)}
-                 <span class="unit-chip__badge"></span>
-                 <span class="unit-chip__name"></span>
-                 <span class="unit-chip__meta"></span>
-               </button>`
-                 )
-                 .join('')}
-             </div>`
-          : `<button type="button" class="game-btn game-btn--primary" data-bm="collect">
-               <span class="game-btn__label">Collecter</span>
-             </button>
-             <small class="building-menu__meta" data-bm="meta"></small>`;
+      assign.innerHTML = `
+        <p class="building-menu__section">Qui envoyer ?</p>
+        <div class="unit-chips" role="radiogroup" aria-label="Qui envoyer ?">
+          ${types
+            .map(
+              (t) => `
+          <button type="button" class="unit-chip" role="radio" data-type="${t}">
+            ${unitIcon(t)}
+            <span class="unit-chip__badge"></span>
+            <span class="unit-chip__name"></span>
+            <span class="unit-chip__meta"></span>
+          </button>`
+            )
+            .join('')}
+        </div>
+        <button type="button" class="game-btn game-btn--primary" data-bm="collect">
+          <span class="game-btn__label">Collecter</span>
+        </button>`;
     }
 
-    if (types.length > 1) {
-      this._singleType = null;
-      // Toutes les unités occupées : chaque pastille dit pourquoi, pas la fiche.
-      const buildingBlocker = blocker === 'Aucune unité disponible' ? null : blocker;
-      for (const chip of assign.querySelectorAll('[data-type]')) {
-        const t = chip.dataset.type;
-        const free = available.filter((u) => u.type === t).length;
-        const owned = s.units.filter((u) => u.type === t).length;
-        chip.querySelector('.unit-chip__badge').textContent = String(free);
-        chip.querySelector('.unit-chip__name').textContent = owned > 1 ? PLURALS[t] : ECONOMY.units[t].label;
-        chip.querySelector('.unit-chip__meta').textContent = free
-          ? `${s.collectionDurationFor(b.id, t)} s · +${s.netRewardFor(b.id, t)}`
-          : this._busyReason(t, now);
-        chip.setAttribute('aria-disabled', String(!free || Boolean(buildingBlocker)));
-        chip.title = `${free} disponible${free > 1 ? 's' : ''} sur ${owned}`;
-      }
-      this.el.querySelector('[data-bm="hint"]').textContent = buildingBlocker ?? (available.length ? '' : 'Toutes tes unités sont occupées');
+    // Un seul type possédé : présélectionné. Sinon, le choix du joueur reste
+    // tant que ce type a une unité libre.
+    if (types.length === 1) this.selectedType = types[0];
+    else if (this.selectedType && !available.some((u) => u.type === this.selectedType)) this.selectedType = null;
+
+    // Toutes les unités occupées : chaque pastille dit pourquoi.
+    const buildingBlocker = blocker === 'Aucune unité disponible' ? null : blocker;
+    for (const chip of assign.querySelectorAll('[data-type]')) {
+      const t = chip.dataset.type;
+      const free = available.filter((u) => u.type === t).length;
+      const owned = s.units.filter((u) => u.type === t).length;
+      chip.querySelector('.unit-chip__badge').textContent = String(free);
+      chip.querySelector('.unit-chip__name').textContent = owned > 1 ? PLURALS[t] : ECONOMY.units[t].label;
+      chip.querySelector('.unit-chip__meta').textContent = free
+        ? `${s.collectionDurationFor(b.id, t)} s · +${s.netRewardFor(b.id, t)}`
+        : this._busyReason(t, now);
+      chip.setAttribute('aria-disabled', String(!free));
+      chip.setAttribute('aria-checked', String(t === this.selectedType));
+      chip.classList.toggle('is-selected', t === this.selectedType);
+      chip.title = `${free} disponible${free > 1 ? 's' : ''} sur ${owned}`;
+    }
+
+    const hint =
+      buildingBlocker ??
+      (!available.length ? 'Toutes tes unités sont occupées' : !this.selectedType ? 'Choisis qui envoyer' : '');
+    this.collectBtn.setAttribute('aria-disabled', String(Boolean(hint)));
+    this.el.querySelector('[data-bm="hint"]').textContent = hint;
+  }
+
+  /** Signe la demande de contrat du bâtiment ouvert ; la fiche devient « contrat actif ». */
+  _sign() {
+    const id = this.openId;
+    if (!id || !this.state.signContract(id)) {
+      sfx.denied();
       return;
     }
-
-    // Un seul type : pas de choix, le bouton envoie directement une unité.
-    const t = types[0];
-    this._singleType = t;
-    this.collectBtn.setAttribute('aria-disabled', blocker ? 'true' : 'false');
-    const free = available.filter((u) => u.type === t).length;
-    this.el.querySelector('[data-bm="meta"]').textContent =
-      `${free > 1 ? `${PLURALS[t]} disponibles : ${free}` : ECONOMY.units[t].label} · ${s.collectionDurationFor(b.id, t)} s · +${s.netRewardFor(b.id, t)} FCFA`;
-    this.el.querySelector('[data-bm="hint"]').textContent = blocker ?? '';
+    sfx.hire();
+    this._render();
   }
 
   /** Pourquoi aucune unité de ce type n'est disponible (texte de la pastille). */
@@ -187,9 +224,10 @@ export class BuildingMenu {
   }
 
   /** Lance la collecte avec une unité disponible du type choisi (engin : le mieux entretenu). */
-  _collect(type, btn = this.collectBtn) {
+  _collect(type) {
+    const btn = this.collectBtn;
     const id = this.openId;
-    if (!id || !type) return;
+    if (!id) return;
     const s = this.state;
     const unit = s
       .availableUnits()

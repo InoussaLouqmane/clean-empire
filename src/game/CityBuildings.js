@@ -11,8 +11,11 @@ const HOVER_TINT = 0xfff4d6;
  * gains flottants, et DEUX temporalités bien distinctes (prompt du
  * 2026-09-25) :
  * - jauge horizontale AU PIED du bâtiment = déchets accumulés depuis la
- *   dernière collecte ; pleine → pastille « ! » au-dessus (prêt) ;
- * - anneau AU-DESSUS du bâtiment = collecte EN COURS (+ secondes). Un bâtiment sans contrat
+ *   dernière collecte ; pleine → pastille à COCHE VERTE au-dessus (prêt,
+ *   « c'est bon, tu peux collecter » — remplace le « ! » le 2026-09-25) ;
+ * - anneau AU-DESSUS du bâtiment = collecte EN COURS (+ secondes).
+ * Établissement qui DEMANDE un contrat (pas encore client) : pastille
+ * sarcelle à CLOCHE qui se balance de temps en temps. Un bâtiment sans contrat
  * n'affiche jamais d'indicateur de collecte (cohérent avec le message
  * « pas de contrat » au clic).
  *
@@ -60,8 +63,18 @@ export class CityBuildings {
       bus.emit('building_clicked', { id: building.id });
     });
 
-    if (!building.contract) return item;
+    // Pastille « demande de contrat » (cloche) : créée pour tous les clients
+    // possibles, affichée seulement tant que la demande est en attente.
+    if (building.client) {
+      item.offerBadge = this.scene.add.graphics().setDepth(950000).setPosition(sprite.x, item.top - 16);
+    }
+    if (building.contract) this._attachContract(item);
+    return item;
+  }
 
+  /** Marqueur, jauge et indicateur d'un bâtiment SOUS CONTRAT. */
+  _attachContract(item) {
+    const { building, sprite } = item;
     // Marqueur au sol (losange doré) : "ce bâtiment est ciblé".
     const { x, y } = isoToScreen(building.col, building.row);
     item.marker = this.scene.add.graphics().setDepth(-120000).setPosition(x, y);
@@ -93,7 +106,15 @@ export class CityBuildings {
       .setOrigin(0.5)
       .setDepth(950001)
       .setResolution(3);
-    return item;
+  }
+
+  /** Un établissement vient de signer : il devient client sur la carte. */
+  addContract(id) {
+    const item = this.items.get(id);
+    if (!item || item.indicator) return;
+    this._attachContract(item);
+    item.offerBadge?.clear();
+    this._applyTint(item);
   }
 
   // Grisé = visible mais non interactif. Pendant les retrouvailles, toute la
@@ -165,6 +186,10 @@ export class CityBuildings {
   /** À chaque frame : indicateurs de disponibilité des bâtiments sous contrat. */
   update(now = Date.now()) {
     for (const [id, item] of this.items) {
+      if (item.offerBadge && !item.indicator) {
+        item.offerBadge.clear();
+        if (item.building.offer && !this.greyed) this._drawBell(item.offerBadge, now);
+      }
       if (!item.indicator) continue;
       const g = item.indicator;
       const text = item.indicatorText;
@@ -191,12 +216,26 @@ export class CityBuildings {
       // Déchets en accumulation : rien au-dessus, seule la jauge au pied parle.
       if (this.state.cooldownLeftS(id, now) > 0) continue;
 
-      // Prêt : pastille dorée « ! » qui invite à collecter.
+      // Prêt : pastille crème à coche verte (« c'est bon, tu peux collecter »).
       g.fillStyle(0x1b1712, 0.9).fillCircle(0, 0, r + 2);
-      g.fillStyle(0xc79a3b, 1).fillCircle(0, 0, r - 1);
-      text.setText('!').setColor('#1b1712');
-      text.setFontSize(15);
+      g.fillStyle(0xf1e9d2, 1).fillCircle(0, 0, r - 1);
+      g.lineStyle(4, 0x4c6b3f, 1).beginPath();
+      g.moveTo(-6, 0).lineTo(-2, 5).lineTo(7, -5).strokePath();
     }
+  }
+
+  /** Pastille sarcelle à cloche (demande de contrat), qui sonne toutes les 2 s. */
+  _drawBell(g, now) {
+    const r = 13;
+    const t = now % 2200;
+    g.setRotation(t < 700 ? Math.sin(t / 55) * 0.3 * (1 - t / 700) : 0);
+    g.fillStyle(0x1b1712, 0.9).fillCircle(0, 0, r + 2);
+    g.fillStyle(0x1f5e52, 1).fillCircle(0, 0, r - 1);
+    g.fillStyle(0xf1e9d2, 1);
+    g.fillCircle(0, -3, 4.5); // dôme
+    g.fillPoints([{ x: -4.5, y: -3 }, { x: 4.5, y: -3 }, { x: 6, y: 4 }, { x: -6, y: 4 }], true); // corps
+    g.fillRect(-7.5, 3.5, 15, 2.5); // bord
+    g.fillCircle(0, 7.5, 1.8); // battant
   }
 
   /** Jauge au pied du bâtiment : `fill` 0..1 (pleine = dorée, prêt à collecter). */

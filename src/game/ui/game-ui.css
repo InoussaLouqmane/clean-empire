@@ -1851,3 +1851,88 @@
   text-align: center;
   color: var(--color-text-muted);
 }
+
+/* ------------------------------------------------------------ contrats */
+.shop-item--offer {
+  grid-template-columns: 44px 1fr auto;
+  border-left-color: var(--palette-teal);
+}
+.shop-item--offer .shop-item__icon {
+  color: var(--palette-teal);
+}
+.shop-item__actions {
+  display: flex;
+  gap: 6px;
+}
+.shop-item__actions .game-btn {
+  min-width: 0;
+}
+.shop__empty {
+  margin: 4px 14px 10px;
+  font-size: 13px;
+  color: var(--color-text-muted);
+}
+.shop__clients {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 0;
+  padding: 0 14px;
+  list-style: none;
+}
+.shop__clients li {
+  padding: 3px 8px;
+  font-size: 12px;
+  font-weight: 700;
+  background: rgba(140, 120, 96, 0.14);
+  border-radius: var(--radius-small);
+}
+.shop__clients small {
+  font-weight: 500;
+  color: var(--color-text-muted);
+}
+.building-menu__kicker--offer {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  color: var(--palette-teal);
+}
+.building-menu__kicker--offer .px-icon {
+  width: 13px;
+  height: 13px;
+}
+.building-menu [data-bm='sign'] {
+  width: 100%;
+}
+
+/* compteurs d'engins dans la barre du HUD (à côté des ouvriers) */
+.hud-stat--unit {
+  font: inherit;
+  color: inherit;
+  background: none;
+  border-top: none;
+  border-right: none;
+  border-bottom: none;
+  cursor: pointer;
+}
+.hud-stat--unit:hover {
+  background: rgba(241, 233, 210, 0.08);
+}
+.hud-stat .unit-icon {
+  width: 24px;
+  height: 24px;
+}
+.unit-chip.is-selected {
+  background: rgba(110, 143, 82, 0.28);
+  border-color: var(--color-success);
+  box-shadow: inset 0 0 0 2px var(--color-success);
+}
+.unit-chip.is-selected .unit-chip__name::before {
+  content: '✓ ';
+  color: var(--color-success);
+}
+/* sprites des engins, sombres : fond clair pour rester lisibles sur la barre */
+.hud-stat .unit-icon--sprite {
+  background-color: rgba(241, 233, 210, 0.9);
+  border-radius: 6px;
+}

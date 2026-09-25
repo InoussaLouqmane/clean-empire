@@ -111,6 +111,22 @@ export const LINES = {
   quetesOuvrir: [
     { speaker: 'karim', expression: 'encouragement', text: "Le carnet, c'est l'icône juste à côté de ta boutique. Ouvre-le, t'as déjà de quoi réclamer." },
   ],
+  // Premiers nouveaux contrats (niveau 2), une fois les primes du carnet
+  // réclamées — texte de l'agent (« fais comme bon te semble », 2026-09-25).
+  contrats: [
+    {
+      speaker: 'karim',
+      expression: 'fierté',
+      text: "Eh, t'as bien géré ! Le bouche-à-oreille a marché : de nouveaux établissements veulent bosser avec toi.",
+    },
+  ],
+  contratsOu: [
+    {
+      speaker: 'karim',
+      expression: 'malin',
+      text: "Tu les repères à la cloche au-dessus d'eux. Clique dessus pour signer, ou passe par l'onglet Contrats de ta boutique.",
+    },
+  ],
   cloture: [
     { speaker: 'karim', expression: 'fierté', text: 'Tu gères déjà mieux que moi à tes débuts.' },
     {
@@ -158,4 +174,6 @@ export const SCRIPT = {
   cloture: { mode: 'full', focus: 'city', lines: LINES.cloture },
   quetes: { mode: 'light', lines: LINES.quetes },
   quetesOuvrir: { mode: 'light', lines: LINES.quetesOuvrir },
+  contrats: { mode: 'light', lines: LINES.contrats },
+  contratsOu: { mode: 'light', lines: LINES.contratsOu },
 };

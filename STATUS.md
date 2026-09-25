@@ -1682,3 +1682,43 @@ règles indépendantes (fin du niveau = objectif du tutoriel ; « Niv. » = XP,
   d'intro réclamées (« À son compte » est alors remplie tout de suite).
 - Vérifié : tutoriel complet, reprise d'une partie à 12 XP (→ Niv. 2), niveau 3
   à 300 XP avec annonce, boutique, sélecteur, jauges. Aucune erreur.
+
+---
+
+## 2026-09-25 — Contrats (onglet rétabli), coche verte, HUD des engins, sélecteur revu
+
+### Fait
+
+- **Contrats** (décision utilisateur : l'onglet revient) : à chaque niveau,
+  de nouveaux établissements DEMANDENT un contrat — les plus proches du QG
+  parmi ceux que le niveau autorise (`ECONOMY.contracts.offersPerLevel` :
+  3 au niv. 2, 4 au 3, 5 au 4, 6 au 5 et après). Pastille sarcelle à CLOCHE
+  au-dessus d'eux (elle sonne toutes les ~2 s). Signature gratuite, +1 000
+  FCFA / +10 XP, depuis la fiche du bâtiment (« Demande de contrat ») ou
+  l'onglet Contrats de la boutique (Voir / Signer + liste des clients). Le
+  bâtiment devient client en direct (jauge, pastille, collecte).
+  Karim présente les premiers contrats une fois les 3 primes du carnet
+  réclamées et le carnet refermé (répliques `contrats` / `contratsOu`) ; aux
+  niveaux suivants, une réplique courte. 4 quêtes « contrats » (40 au total).
+  Sauvegarde : `signedContracts`, `contractOffers`, `offersUpToLevel`,
+  `contractsIntroDone` (champs ajoutés, même clé).
+- **Prêt à collecter** : coche verte dans une pastille crème (remplace « ! »).
+- **HUD** (capture « Présentation ») : compteurs « disponibles/total » des
+  tricycles et camions dans la MÊME barre que les ouvriers (affichés dès qu'on
+  en possède ; clic = boutique). L'étiquette séparée des engins a disparu
+  (l'état reste dans la boutique).
+- **Sélecteur** (même capture — j'avais mal compris) : pastilles par type
+  TOUJOURS affichées + bouton « Collecter » TOUJOURS présent ; on sélectionne
+  puis on collecte. Un seul type → présélectionné (le tutoriel reste « Clique
+  sur Collecter »). Plusieurs types → « Choisis qui envoyer » tant que rien
+  n'est choisi.
+- Bug trouvé en test et corrigé : après une signature depuis la fiche, celle-ci
+  restait en mode « demande ».
+
+### Tests (tous verts, aucune erreur ni 404)
+
+Tutoriel complet desktop et mobile jusqu'aux contrats (annonce de Karim,
+3 cloches, signature, collecte chez le nouveau client, onglet Contrats) ;
+niveau 3 → 4 nouvelles demandes + réplique ; reprise en plein tutoriel (4
+onglets verrouillés sauf Équipe) ; ancienne partie à 12 XP ; boutique desktop
+et mobile ; sélecteur 1 type / 3 types / 100 ouvriers + HUD ; menu ; `?edit`.
